@@ -761,10 +761,9 @@ async def _process_stars_for_new_file(
     keyboard = build_channel_keyboard(file_key)
 
     try:
-        sent_msg = await context.bot.send_document(
+        sent_msg = await context.bot.send_message(
             chat_id=CHANNEL_ID,
-            document=pending["file_id"],
-            caption=msg_text,
+            text=msg_text,
             parse_mode="Markdown",
             reply_markup=keyboard,
         )
@@ -954,10 +953,10 @@ async def _credit_stars(
 
     if file_data.get("channel_message_id"):
         try:
-            await context.bot.edit_message_caption(
+            await context.bot.edit_message_text(
                 chat_id=CHANNEL_ID,
                 message_id=file_data["channel_message_id"],
-                caption=msg_text,
+                text=msg_text,
                 parse_mode="Markdown",
                 reply_markup=kb,
             )
@@ -974,8 +973,20 @@ async def _credit_stars(
         f"الاجمالي: {file_data['current_stars']}/{file_data['total_stars']}",
     )
 
-    # إشعار المالك عند الاكتمال
+    # إشعار المالك وإرسال الملف للقناة عند الاكتمال
     if completed:
+        # إرسال الملف الفعلي للقناة
+        try:
+            await context.bot.send_document(
+                chat_id=CHANNEL_ID,
+                document=file_data["file_id"],
+                caption=f"✅ تم فك القفل بنجاح!\n\n📦 الملف: {escape_md(file_data['name'])}",
+                parse_mode="Markdown",
+            )
+        except Exception as e:
+            logger.error("Failed to send unlocked file to channel: %s", e)
+
+        # إشعار المالك
         supporters_list = ""
         for s_uid, s_stars in file_data["supporters"].items():
             supporters_list += f"   {s_uid} = {s_stars}\n"
