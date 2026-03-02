@@ -18,12 +18,19 @@ import asyncio
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    LabeledPrice,
+    BotCommand,
+)
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
     CallbackQueryHandler,
+    PreCheckoutQueryHandler,
     filters,
     ContextTypes,
 )
@@ -369,36 +376,47 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await _handle_support_entry(update, context, file_key)
             return
 
-    # رسالة الترحيب
+    # رسالة الترحيب مع أزرار الخدمات
     if is_owner(user_id):
         text = (
-            "👋 *مرحباً أيها المالك!*\n"
+            "👋 مرحبا أيها المالك!\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            "🎛️ *لوحة التحكم:*\n"
-            "├ /addfile ← رفع ملف APK\n"
-            "├ /listfiles ← قائمة الملفات\n"
-            "├ /deletefile ← حذف ملف\n"
-            "├ /stats ← الإحصائيات\n"
-            "├ /broadcast ← إرسال جماعي\n"
-            "└ /shutdown ← إيقاف البوت\n\n"
-            "📦 ابدأ بإرسال /addfile لرفع ملف جديد."
+            "🎛️ لوحة التحكم:\n"
+            "├ /addfile - رفع ملف APK\n"
+            "├ /listfiles - قائمة الملفات\n"
+            "├ /deletefile - حذف ملف\n"
+            "├ /stats - الإحصائيات\n"
+            "├ /broadcast - إرسال جماعي\n"
+            "└ /shutdown - إيقاف البوت"
         )
+        keyboard = [
+            [InlineKeyboardButton("📦 رفع ملف", callback_data="menu_addfile")],
+            [InlineKeyboardButton("📂 قائمة الملفات", callback_data="menu_listfiles")],
+            [InlineKeyboardButton("📊 الإحصائيات", callback_data="menu_stats")],
+        ]
     else:
         text = (
-            "👋 *مرحباً بك!*\n"
+            "👋 مرحبا بك!\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n\n"
             "يمكنك دعم الملفات بالنجوم عبر\n"
             "أزرار الدعم في القناة.\n\n"
-            "⭐ شكراً لدعمك!"
+            "⭐ شكرا لدعمك!"
         )
+        keyboard = [
+            [InlineKeyboardButton("⭐ شراء نجوم", url=f"https://t.me/{BOT_USERNAME}")],
+            [InlineKeyboardButton("❓ مساعدة", callback_data="menu_help")],
+        ]
 
-    await update.message.reply_text(text, parse_mode="Markdown")
+    await update.message.reply_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
 
 
 async def _handle_support_entry(
     update: Update, context: ContextTypes.DEFAULT_TYPE, file_key: str
 ) -> None:
-    """معالجة دخول المستخدم عبر رابط الدعم."""
+    """معالجة دخول المستخدم عبر رابط الدعم - عرض أزرار اختيار عدد النجوم."""
     user_id = update.effective_user.id
 
     if is_banned(user_id):
@@ -406,23 +424,32 @@ async def _handle_support_entry(
 
     data = load_data()
 
-    # التحقق من وجود الملف
     if file_key not in data["files"]:
-        await update.message.reply_text("❌ هذا الملف غير موجود أو تم حذفه.")
+        await update.message.reply_text("هذا الملف غير موجود أو تم حذفه.")
         return
 
     file_data = data["files"][file_key]
 
-    # التحقق من اكتمال الدعم
     if file_data["current_stars"] >= file_data["total_stars"]:
-        await update.message.reply_text("✅ هذا الملف مكتمل الدعم بالفعل! شكراً لك.")
+        await update.message.reply_text("هذا الملف مكتمل الدعم بالفعل! شكرا لك.")
         return
 
     remaining = file_data["total_stars"] - file_data["current_stars"]
     progress = create_progress_bar(file_data["current_stars"], file_data["total_stars"])
 
-    # حفظ مفتاح الملف في بيانات المستخدم
-    context.user_data["pending_support"] = file_key
+    # أزرار اختيار عدد النجوم للدفع الحقيقي
+    keyboard = [
+        [
+            InlineKeyboardButton("1 ⭐", callback_data=f"pay_1_{file_key}"),
+            InlineKeyboardButton("5 ⭐", callback_data=f"pay_5_{file_key}"),
+            InlineKeyboardButton("10 ⭐", callback_data=f"pay_10_{file_key}"),
+        ],
+        [
+            InlineKeyboardButton("25 ⭐", callback_data=f"pay_25_{file_key}"),
+            InlineKeyboardButton("50 ⭐", callback_data=f"pay_50_{file_key}"),
+            InlineKeyboardButton("100 ⭐", callback_data=f"pay_100_{file_key}"),
+        ],
+    ]
 
     await update.message.reply_text(
         f"📦 {file_data['name']}\n"
@@ -430,7 +457,8 @@ async def _handle_support_entry(
         f"📊 التقدم: {progress}\n"
         f"⭐ المتبقي: {remaining} نجمة\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"💫 أدخل عدد النجوم التي تريد التبرع بها:",
+        f"💫 اختر عدد النجوم للدعم:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
 
@@ -687,11 +715,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await _process_broadcast(update, context, text)
         return
 
-    # ─── المستخدم: دعم بالنجوم ───
-    pending_support = context.user_data.get("pending_support")
-    if pending_support:
-        await _process_star_support(update, context, text, pending_support)
-        return
+    # (تم نقل دعم النجوم إلى نظام الدفع الحقيقي عبر send_invoice)
 
 
 async def _process_stars_for_new_file(
@@ -822,65 +846,110 @@ async def _process_broadcast(
         )
 
 
-async def _process_star_support(
-    update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, file_key: str
+# ══════════════════════════════════════════════════════════════════
+#  نظام الدفع الحقيقي بنجوم Telegram (XTR)
+# ══════════════════════════════════════════════════════════════════
+
+async def send_star_invoice(
+    chat_id: int, file_key: str, amount: int, file_name: str,
+    context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
-    """معالجة دعم المستخدم بالنجوم."""
-    user_id = update.effective_user.id
+    """إرسال فاتورة نجوم Telegram الحقيقية."""
+    await context.bot.send_invoice(
+        chat_id=chat_id,
+        title=f"دعم: {file_name}",
+        description=f"دعم الملف بـ {amount} نجمة عبر Telegram Stars",
+        payload=f"stars_{file_key}_{amount}",
+        currency="XTR",
+        prices=[LabeledPrice(f"{amount} نجمة", amount)],
+    )
 
-    # التحقق من صحة الإدخال
-    if not text.isdigit() or int(text) <= 0:
-        await update.message.reply_text("❌ أدخل رقماً صحيحاً أكبر من 0.")
+
+async def handle_pre_checkout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """الموافقة التلقائية على طلبات الدفع المسبق."""
+    query = update.pre_checkout_query
+    payload = query.invoice_payload
+
+    if not payload.startswith("stars_"):
+        await query.answer(ok=False, error_message="فاتورة غير معروفة.")
         return
 
-    stars = int(text)
-
-    # فحص الحماية السلوكية
-    allowed, reason = await check_protection(user_id, stars, context)
-    if not allowed:
-        if reason:
-            await update.message.reply_text(reason)
-        context.user_data["pending_support"] = None
+    parts = payload.split("_", 2)
+    if len(parts) < 3:
+        await query.answer(ok=False, error_message="بيانات غير صالحة.")
         return
 
-    # تحميل البيانات والتحقق من الملف
+    file_key = parts[1]
     data = load_data()
 
     if file_key not in data["files"]:
-        await update.message.reply_text("❌ هذا الملف لم يعد موجوداً.")
-        context.user_data["pending_support"] = None
+        await query.answer(ok=False, error_message="الملف لم يعد موجوداً.")
+        return
+
+    if query.from_user.id in data["banned_users"]:
+        await query.answer(ok=False, error_message="تم حظرك من البوت.")
+        return
+
+    await query.answer(ok=True)
+
+
+async def handle_successful_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """معالجة الدفع الناجح وتحديث عداد النجوم."""
+    payment = update.message.successful_payment
+    payload = payment.invoice_payload
+    user_id = update.effective_user.id
+
+    if not payload.startswith("stars_"):
+        return
+
+    parts = payload.split("_", 2)
+    if len(parts) < 3:
+        return
+
+    file_key = parts[1]
+    stars = int(parts[2])
+
+    await _credit_stars(update, context, user_id, file_key, stars)
+
+
+async def _credit_stars(
+    update: Update, context: ContextTypes.DEFAULT_TYPE,
+    user_id: int, file_key: str, stars: int,
+) -> None:
+    """إضافة النجوم بعد تأكيد الدفع الحقيقي وتحديث القناة."""
+    data = load_data()
+
+    if file_key not in data["files"]:
+        await update.message.reply_text("الملف لم يعد موجودا.")
         return
 
     file_data = data["files"][file_key]
 
     if file_data["current_stars"] >= file_data["total_stars"]:
-        await update.message.reply_text("✅ هذا الملف مكتمل الدعم بالفعل!")
-        context.user_data["pending_support"] = None
+        await update.message.reply_text("هذا الملف مكتمل الدعم بالفعل!")
         return
 
-    # ── تحديث النجوم ──
+    # تحديث النجوم
     file_data["current_stars"] += stars
 
-    # تحديث معلومات الداعم
     uid = str(user_id)
     if uid not in file_data["supporters"]:
         file_data["supporters"][uid] = 0
     file_data["supporters"][uid] += stars
 
-    # تحديث إحصائيات المستخدم
     if uid not in data["user_stats"]:
         data["user_stats"][uid] = {"actions": [], "total_stars": 0, "count": 0}
     data["user_stats"][uid]["total_stars"] += stars
     data["user_stats"][uid]["count"] += 1
     data["user_last_action"][uid] = time.time()
 
-    add_log(data, "star_support", user_id, f"Key: {file_key}, Stars: {stars}")
+    add_log(data, "star_payment", user_id, f"Key: {file_key}, Stars: {stars}")
     save_data(data)
 
-    # ── تحديث رسالة القناة ──
+    # تحديث رسالة القناة
     completed = file_data["current_stars"] >= file_data["total_stars"]
     msg_text = build_channel_message(file_data)
-    keyboard = build_channel_keyboard(file_key, completed)
+    kb = build_channel_keyboard(file_key, completed)
 
     if file_data.get("channel_message_id"):
         try:
@@ -889,49 +958,42 @@ async def _process_star_support(
                 message_id=file_data["channel_message_id"],
                 caption=msg_text,
                 parse_mode="Markdown",
-                reply_markup=keyboard,
+                reply_markup=kb,
             )
         except Exception as e:
             logger.warning("Could not update channel message: %s", e)
 
-    # ── رسالة شكر للمستخدم ──
+    # رسالة شكر
     progress = create_progress_bar(file_data["current_stars"], file_data["total_stars"])
     await update.message.reply_text(
-        f"✅ *شكراً لدعمك!*\n"
+        f"شكرا لدعمك!\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"⭐ تم إضافة: {stars} نجمة\n"
-        f"📊 التقدم: {progress}\n"
-        f"⭐ الإجمالي: {file_data['current_stars']}/{file_data['total_stars']}\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━",
-        parse_mode="Markdown",
+        f"تم اضافة: {stars} نجمة\n"
+        f"التقدم: {progress}\n"
+        f"الاجمالي: {file_data['current_stars']}/{file_data['total_stars']}",
     )
 
-    # ── إشعار المالك عند الاكتمال ──
+    # إشعار المالك عند الاكتمال
     if completed:
         supporters_list = ""
         for s_uid, s_stars in file_data["supporters"].items():
-            supporters_list += f"   • `{s_uid}` → {s_stars}⭐\n"
+            supporters_list += f"   {s_uid} = {s_stars}\n"
 
         try:
             await context.bot.send_message(
                 chat_id=OWNER_ID,
                 text=(
-                    f"🎉 *اكتمل دعم ملف!*\n"
+                    f"اكتمل دعم ملف!\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"📦 الملف: {escape_md(file_data['name'])}\n"
-                    f"🔑 المفتاح: `{file_key}`\n"
-                    f"⭐ النجوم: {file_data['current_stars']}/{file_data['total_stars']}\n"
-                    f"👥 الداعمون ({len(file_data['supporters'])}):\n"
+                    f"الملف: {file_data['name']}\n"
+                    f"المفتاح: {file_key}\n"
+                    f"النجوم: {file_data['current_stars']}/{file_data['total_stars']}\n"
+                    f"الداعمون ({len(file_data['supporters'])}):\n"
                     f"{supporters_list}"
-                    f"━━━━━━━━━━━━━━━━━━━━━━"
                 ),
-                parse_mode="Markdown",
             )
         except Exception as e:
             logger.error("Failed to notify owner about completion: %s", e)
-
-    # مسح حالة الدعم
-    context.user_data["pending_support"] = None
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -945,6 +1007,48 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     user_id = query.from_user.id
     cb_data = query.data
+
+    # ─── دفع نجوم حقيقي (pay_AMOUNT_FILEKEY) ───
+    if cb_data.startswith("pay_"):
+        parts = cb_data.split("_", 2)
+        if len(parts) == 3:
+            amount = int(parts[1])
+            file_key = parts[2]
+            data = load_data()
+            if file_key in data["files"]:
+                file_name = data["files"][file_key]["name"]
+                await send_star_invoice(user_id, file_key, amount, file_name, context)
+            else:
+                await query.edit_message_text("الملف لم يعد موجودا.")
+        return
+
+    # ─── أزرار القائمة الرئيسية ───
+    if cb_data == "menu_addfile":
+        if is_owner(user_id):
+            context.user_data["state"] = "waiting_apk"
+            await query.edit_message_text("📦 أرسل ملف APK الآن:")
+        return
+
+    if cb_data == "menu_listfiles":
+        if is_owner(user_id):
+            await query.edit_message_text("استخدم /listfiles لعرض القائمة.")
+        return
+
+    if cb_data == "menu_stats":
+        if is_owner(user_id):
+            await query.edit_message_text("استخدم /stats لعرض الإحصائيات.")
+        return
+
+    if cb_data == "menu_help":
+        await query.edit_message_text(
+            "❓ المساعدة\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "يمكنك دعم الملفات بالنجوم عبر\n"
+            "الضغط على زر الدعم في القناة.\n\n"
+            "سيتم فتح نافذة دفع Telegram Stars\n"
+            "الرسمية لإتمام العملية.",
+        )
+        return
 
     # ─── تأكيد حذف ملف ───
     if cb_data.startswith("confirmdelete_"):
@@ -1042,17 +1146,29 @@ async def post_init(application) -> None:
     """يتم استدعاؤها بعد تهيئة التطبيق بنجاح."""
     bot_info = await application.bot.get_me()
     logger.info("🤖 Bot started: @%s (ID: %s)", bot_info.username, bot_info.id)
-    # إرسال إشعار للمالك بأن البوت يعمل
+
+    # تعيين قائمة الأوامر (Menu) بجانب خانة الكتابة
+    commands = [
+        BotCommand("start", "بدء البوت"),
+        BotCommand("addfile", "رفع ملف APK"),
+        BotCommand("listfiles", "قائمة الملفات"),
+        BotCommand("deletefile", "حذف ملف"),
+        BotCommand("stats", "الإحصائيات"),
+        BotCommand("broadcast", "إرسال جماعي"),
+    ]
+    await application.bot.set_my_commands(commands)
+    logger.info("✅ Bot commands menu set")
+
+    # إرسال إشعار للمالك
     try:
         await application.bot.send_message(
             chat_id=OWNER_ID,
             text=(
-                "🟢 *البوت يعمل الآن!*\n"
+                f"🟢 البوت يعمل الآن!\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🤖 @{bot_info.username}\n"
                 f"🕐 {time.strftime('%Y-%m-%d %H:%M:%S')}"
             ),
-            parse_mode="Markdown",
         )
     except Exception:
         pass
@@ -1105,7 +1221,11 @@ def main() -> None:
 
     # ── تسجيل معالجات الرسائل ──
     application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+    application.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, handle_successful_payment))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+
+    # ── تسجيل معالج الدفع المسبق ──
+    application.add_handler(PreCheckoutQueryHandler(handle_pre_checkout))
 
     # ── تسجيل معالج الأزرار ──
     application.add_handler(CallbackQueryHandler(handle_callback))
