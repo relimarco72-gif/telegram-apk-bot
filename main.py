@@ -24,6 +24,7 @@ from telegram import (
     InlineKeyboardMarkup,
     LabeledPrice,
     BotCommand,
+    BotCommandScopeChat,
 )
 from telegram.ext import (
     ApplicationBuilder,
@@ -41,7 +42,7 @@ from telegram.ext import (
 # ══════════════════════════════════════════════════════════════════
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-OWNER_ID = 7246473970
+ADMIN_ID = 7246473970
 CHANNEL_ID = -1002489542574
 BOT_USERNAME = "AE_Mode_bot"
 DATA_FILE = "data.json"
@@ -144,11 +145,6 @@ def add_log(data: dict, action: str, user_id: int = 0, details: str = "") -> Non
 # ══════════════════════════════════════════════════════════════════
 #  دوال مساعدة
 # ══════════════════════════════════════════════════════════════════
-
-def is_owner(user_id: int) -> bool:
-    """التحقق مما إذا كان المستخدم هو المالك."""
-    return user_id == OWNER_ID
-
 
 def is_banned(user_id: int) -> bool:
     """التحقق مما إذا كان المستخدم محظوراً."""
@@ -258,7 +254,7 @@ async def add_violation(
     # إشعار المالك بالمخالفة
     try:
         await context.bot.send_message(
-            chat_id=OWNER_ID,
+            chat_id=ADMIN_ID,
             text=(
                 f"⚠️ *مخالفة جديدة*\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -278,7 +274,7 @@ async def add_violation(
 
         try:
             await context.bot.send_message(
-                chat_id=OWNER_ID,
+                chat_id=ADMIN_ID,
                 text=(
                     f"🚫 *تم حظر مستخدم تلقائياً!*\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -302,7 +298,7 @@ async def check_protection(
     الفحوصات: حظر، معدل، سبام، قفزات غير طبيعية.
     """
     # المالك معفى من الحماية
-    if is_owner(user_id):
+    if user_id == ADMIN_ID:
         return True, ""
 
     data = load_data()
@@ -377,7 +373,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
     # رسالة الترحيب مع أزرار الخدمات
-    if is_owner(user_id):
+    if user_id == ADMIN_ID:
         text = (
             "👋 مرحبا أيها المالك!\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -464,7 +460,7 @@ async def _handle_support_entry(
 
 async def cmd_addfile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """أمر رفع ملف APK جديد (المالك فقط)."""
-    if not is_owner(update.effective_user.id):
+    if update.effective_user.id != ADMIN_ID:
         return
 
     context.user_data["state"] = "waiting_apk"
@@ -479,7 +475,7 @@ async def cmd_addfile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 async def cmd_listfiles(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """عرض قائمة جميع الملفات (المالك فقط)."""
-    if not is_owner(update.effective_user.id):
+    if update.effective_user.id != ADMIN_ID:
         return
 
     data = load_data()
@@ -508,7 +504,7 @@ async def cmd_listfiles(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def cmd_deletefile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """عرض قائمة الملفات للحذف (المالك فقط)."""
-    if not is_owner(update.effective_user.id):
+    if update.effective_user.id != ADMIN_ID:
         return
 
     data = load_data()
@@ -542,7 +538,7 @@ async def cmd_deletefile(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """عرض إحصائيات شاملة (المالك فقط)."""
-    if not is_owner(update.effective_user.id):
+    if update.effective_user.id != ADMIN_ID:
         return
 
     data = load_data()
@@ -602,7 +598,7 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """بدء عملية الإرسال الجماعي (المالك فقط)."""
-    if not is_owner(update.effective_user.id):
+    if update.effective_user.id != ADMIN_ID:
         return
 
     context.user_data["state"] = "waiting_broadcast"
@@ -619,7 +615,7 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def cmd_shutdown(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """إيقاف البوت (المالك فقط)."""
-    if not is_owner(update.effective_user.id):
+    if update.effective_user.id != ADMIN_ID:
         return
 
     await update.message.reply_text(
@@ -629,7 +625,7 @@ async def cmd_shutdown(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
     data = load_data()
-    add_log(data, "shutdown", OWNER_ID, "Bot shutdown by owner")
+    add_log(data, "shutdown", ADMIN_ID, "Bot shutdown by owner")
     save_data(data)
 
     # إيقاف البوت – نستخدم SIGTERM على Linux/Railway، SIGINT كاحتياطي
@@ -648,7 +644,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     user_id = update.effective_user.id
 
     # المالك فقط يمكنه رفع الملفات
-    if not is_owner(user_id):
+    if user_id != ADMIN_ID:
         return
 
     # التحقق من الحالة
@@ -706,12 +702,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
 
     # ─── المالك: إدخال عدد النجوم لملف جديد ───
-    if is_owner(user_id) and state == "waiting_stars_count":
+    if user_id == ADMIN_ID and state == "waiting_stars_count":
         await _process_stars_for_new_file(update, context, text)
         return
 
     # ─── المالك: إرسال جماعي ───
-    if is_owner(user_id) and state == "waiting_broadcast":
+    if user_id == ADMIN_ID and state == "waiting_broadcast":
         await _process_broadcast(update, context, text)
         return
 
@@ -753,7 +749,7 @@ async def _process_stars_for_new_file(
     }
 
     data["files"][file_key] = file_data
-    add_log(data, "file_added", OWNER_ID, f"Key: {file_key}, Name: {pending['file_name']}")
+    add_log(data, "file_added", ADMIN_ID, f"Key: {file_key}, Name: {pending['file_name']}")
     save_data(data)
 
     # نشر الملف في القناة مع شريط التقدم وزر الدعم
@@ -827,7 +823,7 @@ async def _process_broadcast(
         # تأخير بسيط لتجنب حدود Telegram
         await asyncio.sleep(0.05)
 
-    add_log(data, "broadcast", OWNER_ID, f"Success: {success}, Failed: {failed}")
+    add_log(data, "broadcast", ADMIN_ID, f"Success: {success}, Failed: {failed}")
     save_data(data)
 
     try:
@@ -993,7 +989,7 @@ async def _credit_stars(
 
         try:
             await context.bot.send_message(
-                chat_id=OWNER_ID,
+                chat_id=ADMIN_ID,
                 text=(
                     f"اكتمل دعم ملف!\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -1036,18 +1032,18 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     # ─── أزرار القائمة الرئيسية ───
     if cb_data == "menu_addfile":
-        if is_owner(user_id):
+        if user_id == ADMIN_ID:
             context.user_data["state"] = "waiting_apk"
             await query.edit_message_text("📦 أرسل ملف APK الآن:")
         return
 
     if cb_data == "menu_listfiles":
-        if is_owner(user_id):
+        if user_id == ADMIN_ID:
             await query.edit_message_text("استخدم /listfiles لعرض القائمة.")
         return
 
     if cb_data == "menu_stats":
-        if is_owner(user_id):
+        if user_id == ADMIN_ID:
             await query.edit_message_text("استخدم /stats لعرض الإحصائيات.")
         return
 
@@ -1064,7 +1060,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     # ─── تأكيد حذف ملف ───
     if cb_data.startswith("confirmdelete_"):
-        if not is_owner(user_id):
+        if user_id != ADMIN_ID:
             return
 
         file_key = cb_data[14:]  # إزالة "confirmdelete_"
@@ -1093,7 +1089,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     # ─── تنفيذ الحذف ───
     if cb_data.startswith("dodelete_"):
-        if not is_owner(user_id):
+        if user_id != ADMIN_ID:
             return
 
         file_key = cb_data[9:]  # إزالة "dodelete_"
@@ -1117,7 +1113,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     # ─── إلغاء الحذف ───
     if cb_data == "cancel_delete":
-        if not is_owner(user_id):
+        if user_id != ADMIN_ID:
             return
         await query.edit_message_text("✅ تم إلغاء عملية الحذف.")
         return
@@ -1138,7 +1134,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     # إشعار المالك بالخطأ
     try:
         await context.bot.send_message(
-            chat_id=OWNER_ID,
+            chat_id=ADMIN_ID,
             text=(
                 f"🔴 *خطأ في البوت:*\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -1159,8 +1155,14 @@ async def post_init(application) -> None:
     bot_info = await application.bot.get_me()
     logger.info("🤖 Bot started: @%s (ID: %s)", bot_info.username, bot_info.id)
 
-    # تعيين قائمة الأوامر (Menu) بجانب خانة الكتابة
-    commands = [
+    # تعيين قائمة الأوامر (Menu) للمستخدمين العاديين
+    user_commands = [
+        BotCommand("start", "بدء البوت"),
+    ]
+    await application.bot.set_my_commands(user_commands)
+
+    # تعيين قائمة الأوامر للمالك فقط بجانب خانة الكتابة
+    admin_commands = [
         BotCommand("start", "بدء البوت"),
         BotCommand("addfile", "رفع ملف APK"),
         BotCommand("listfiles", "قائمة الملفات"),
@@ -1168,13 +1170,15 @@ async def post_init(application) -> None:
         BotCommand("stats", "الإحصائيات"),
         BotCommand("broadcast", "إرسال جماعي"),
     ]
-    await application.bot.set_my_commands(commands)
+    await application.bot.set_my_commands(
+        admin_commands, scope=BotCommandScopeChat(chat_id=ADMIN_ID)
+    )
     logger.info("✅ Bot commands menu set")
 
     # إرسال إشعار للمالك
     try:
         await application.bot.send_message(
-            chat_id=OWNER_ID,
+            chat_id=ADMIN_ID,
             text=(
                 f"🟢 البوت يعمل الآن!\n"
                 f"━━━━━━━━━━━━━━━━━━━━━━\n"
