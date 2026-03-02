@@ -597,8 +597,11 @@ async def cmd_shutdown(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     add_log(data, "shutdown", OWNER_ID, "Bot shutdown by owner")
     save_data(data)
 
-    # إيقاف البوت بإشارة SIGINT لإغلاق نظيف
-    os.kill(os.getpid(), signal.SIGINT)
+    # إيقاف البوت – نستخدم SIGTERM على Linux/Railway، SIGINT كاحتياطي
+    try:
+        os.kill(os.getpid(), signal.SIGTERM)
+    except (OSError, AttributeError):
+        os.kill(os.getpid(), signal.SIGINT)
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1026,6 +1029,30 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 # ══════════════════════════════════════════════════════════════════
+#  دالة بدء التشغيل (post_init)
+# ══════════════════════════════════════════════════════════════════
+
+async def post_init(application) -> None:
+    """يتم استدعاؤها بعد تهيئة التطبيق بنجاح."""
+    bot_info = await application.bot.get_me()
+    logger.info("🤖 Bot started: @%s (ID: %s)", bot_info.username, bot_info.id)
+    # إرسال إشعار للمالك بأن البوت يعمل
+    try:
+        await application.bot.send_message(
+            chat_id=OWNER_ID,
+            text=(
+                "🟢 *البوت يعمل الآن!*\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"🤖 @{bot_info.username}\n"
+                f"🕐 {time.strftime('%Y-%m-%d %H:%M:%S')}"
+            ),
+            parse_mode="Markdown",
+        )
+    except Exception:
+        pass
+
+
+# ══════════════════════════════════════════════════════════════════
 #  نقطة الدخول الرئيسية
 # ══════════════════════════════════════════════════════════════════
 
@@ -1044,13 +1071,22 @@ def main() -> None:
     load_data()
     logger.info("✅ Data file initialized")
 
-    # ── تشغيل خادم Render الصحي ──
+    # ── تشغيل خادم HTTP الصحي (Render / Railway) ──
     health_thread = threading.Thread(target=_start_health_server, daemon=True)
     health_thread.start()
     logger.info("✅ Health server thread started")
 
-    # ── بناء التطبيق ──
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    # ── بناء التطبيق مع إعدادات الاتصال المحسّنة ──
+    application = (
+        ApplicationBuilder()
+        .token(BOT_TOKEN)
+        .connect_timeout(30.0)
+        .read_timeout(30.0)
+        .write_timeout(30.0)
+        .pool_timeout(30.0)
+        .post_init(post_init)
+        .build()
+    )
 
     # ── تسجيل أوامر المالك ──
     application.add_handler(CommandHandler("start", cmd_start))
@@ -1071,7 +1107,7 @@ def main() -> None:
     # ── تسجيل معالج الأخطاء ──
     application.add_error_handler(error_handler)
 
-    # ── بدء التشغيل ──
+    # ── بدء التشغيل بنظام Polling ──
     logger.info("🤖 Bot is starting with polling...")
     application.run_polling(
         drop_pending_updates=True,
