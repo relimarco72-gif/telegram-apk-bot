@@ -860,6 +860,7 @@ async def send_star_invoice(
         title=f"دعم: {file_name}",
         description=f"دعم الملف بـ {amount} نجمة عبر Telegram Stars",
         payload=f"stars_{file_key}_{amount}",
+        provider_token="",
         currency="XTR",
         prices=[LabeledPrice(f"{amount} نجمة", amount)],
     )
