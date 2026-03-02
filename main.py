@@ -155,6 +155,13 @@ def generate_file_key() -> str:
     return "".join(random.choices(chars, k=8))
 
 
+def escape_md(text: str) -> str:
+    """تهريب الأحرف الخاصة في Markdown لتجنب أخطاء parse_entities."""
+    for ch in ("_", "*", "`", "["):
+        text = text.replace(ch, f"\\{ch}")
+    return text
+
+
 def create_progress_bar(current: int, total: int, length: int = 20) -> str:
     """إنشاء شريط تقدم بصري."""
     if total <= 0:
@@ -179,8 +186,9 @@ def build_channel_message(file_data: dict) -> str:
     else:
         status = f"⭐ {current}/{total}"
 
+    safe_name = escape_md(name)
     text = (
-        f"📦 *{name}*\n"
+        f"📦 *{safe_name}*\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"📊 التقدم: {progress}\n"
         f"⭐ النجوم: {status}\n"
@@ -417,13 +425,12 @@ async def _handle_support_entry(
     context.user_data["pending_support"] = file_key
 
     await update.message.reply_text(
-        f"📦 *{file_data['name']}*\n"
+        f"📦 {file_data['name']}\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"📊 التقدم: {progress}\n"
         f"⭐ المتبقي: {remaining} نجمة\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"💫 أدخل عدد النجوم التي تريد التبرع بها:",
-        parse_mode="Markdown",
     )
 
 
@@ -461,7 +468,7 @@ async def cmd_listfiles(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         completed = "✅" if fdata["current_stars"] >= fdata["total_stars"] else "⏳"
 
         text += (
-            f"{completed} *{fdata['name']}*\n"
+            f"{completed} *{escape_md(fdata['name'])}*\n"
             f"   🔑 المفتاح: `{key}`\n"
             f"   📊 {progress}\n"
             f"   ⭐ {fdata['current_stars']}/{fdata['total_stars']}\n"
@@ -643,13 +650,12 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     size_mb = round(document.file_size / (1024 * 1024), 2) if document.file_size else 0
 
     await update.message.reply_text(
-        f"✅ *تم استلام الملف:*\n"
+        f"✅ تم استلام الملف:\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"📦 الاسم: {document.file_name}\n"
         f"📏 الحجم: {size_mb} MB\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"⭐ أدخل عدد النجوم المطلوبة لهذا الملف:",
-        parse_mode="Markdown",
     )
 
 
@@ -760,7 +766,7 @@ async def _process_stars_for_new_file(
         f"✅ *تم نشر الملف بنجاح!*\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🔑 المفتاح: `{file_key}`\n"
-        f"📦 الاسم: {pending['file_name']}\n"
+        f"📦 الاسم: {escape_md(pending['file_name'])}\n"
         f"⭐ النجوم المطلوبة: {total_stars}\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"📢 تم النشر في القناة.",
@@ -912,7 +918,7 @@ async def _process_star_support(
                 text=(
                     f"🎉 *اكتمل دعم ملف!*\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"📦 الملف: {file_data['name']}\n"
+                    f"📦 الملف: {escape_md(file_data['name'])}\n"
                     f"🔑 المفتاح: `{file_key}`\n"
                     f"⭐ النجوم: {file_data['current_stars']}/{file_data['total_stars']}\n"
                     f"👥 الداعمون ({len(file_data['supporters'])}):\n"
@@ -960,7 +966,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             file_name = data["files"][file_key]["name"]
             await query.edit_message_text(
                 f"⚠️ *هل أنت متأكد من حذف:*\n\n"
-                f"📦 {file_name}\n"
+                f"📦 {escape_md(file_name)}\n"
                 f"🔑 `{file_key}`",
                 parse_mode="Markdown",
                 reply_markup=InlineKeyboardMarkup(keyboard),
@@ -985,7 +991,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
             await query.edit_message_text(
                 f"✅ *تم حذف الملف بنجاح:*\n\n"
-                f"📦 {file_name}\n"
+                f"📦 {escape_md(file_name)}\n"
                 f"🔑 `{file_key}`",
                 parse_mode="Markdown",
             )
