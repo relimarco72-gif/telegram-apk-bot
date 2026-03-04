@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مساهمة جماعية - فتح الملف</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src='//libtl.com/sdk.js' data-zone='10682642' data-sdk='show_10682642'></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            max-width: 400px;
+            width: 100%;
+        }
+        .icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        h2 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle {
+            color: #8899aa;
+            font-size: 14px;
+            margin-bottom: 32px;
+            line-height: 1.6;
+        }
+        .tip {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 13px;
+            color: #ffc107;
+            margin-bottom: 28px;
+        }
+        .btn-watch {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 16px 36px;
+            font-size: 17px;
+            font-weight: 600;
+            color: #ffffff;
+            background: linear-gradient(135deg, #0088cc, #0066aa);
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0, 136, 204, 0.4);
+            width: 100%;
+            max-width: 320px;
+        }
+        .btn-watch:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 28px rgba(0, 136, 204, 0.5);
+        }
+        .btn-watch:active {
+            transform: translateY(0);
+        }
+        .btn-watch:disabled {
+            background: #444;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 24px;
+            font-size: 14px;
+            color: #66bb6a;
+            display: none;
+        }
+        .status.error {
+            color: #ef5350;
+        }
+        .status.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">🔓</div>
+        <h2>ساهم في فتح الملف للجميع</h2>
+        <p class="subtitle">
+            شاهد إعلاناً قصيراً للمساهمة في فتح الملف<br>
+            لجميع أعضاء القناة مجاناً!
+        </p>
+        <div class="tip">
+            💡 نصيحة: التفاعل مع العروض داخل الإعلان يسرّع من عملية فتح الملف!
+        </div>
+        <button class="btn-watch" id="watchBtn" onclick="startAd()">
+            📹 شاهد الإعلان للمساهمة
+        </button>
+        <div class="status" id="statusMsg"></div>
+    </div>
+
+    <script>
+        // تهيئة Telegram Web App
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+
+        // استخراج مفتاح الملف من رابط الصفحة
+        function getFileKey() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('file_key') || '';
+        }
+
+        const fileKey = getFileKey();
+        const btn = document.getElementById('watchBtn');
+        const statusEl = document.getElementById('statusMsg');
+
+        function showStatus(msg, isError) {
+            statusEl.textContent = msg;
+            statusEl.className = 'status show' + (isError ? ' error' : '');
+        }
+
+        function startAd() {
+            if (!fileKey) {
+                showStatus('❌ خطأ: لم يتم تحديد الملف.', true);
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = '⏳ جاري تحميل الإعلان...';
+
+            // تشغيل النافذة المنبثقة للمكافأة من Monetag
+            show_10682642('pop').then(() => {
+                // عند إتمام المشاهدة بنجاح، نرسل إشارة للبوت مع مفتاح الملف
+                showStatus('✅ شكراً لمساهمتك! جاري إرسال البيانات...', false);
+                
+                Telegram.WebApp.sendData(JSON.stringify({
+                    action: "monetag_reward_done",
+                    file_key: fileKey
+                }));
+            }).catch(e => {
+                console.error("Ad error:", e);
+                showStatus('⚠️ تم إلغاء الإعلان أو حدث خطأ. حاول مرة أخرى.', true);
+                btn.disabled = false;
+                btn.textContent = '📹 شاهد الإعلان للمساهمة';
+            });
+        }
+    </script>
+</body>
+</html>
