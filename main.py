@@ -262,17 +262,20 @@ def build_channel_keyboard(file_key: str, file_data: dict):
 
 
 def build_channel_keyboard_deep(file_key: str, file_data: dict):
-    """بناء زر الانتقال للبوت لفتح الملف مع زر عرض النجوم."""
+    """بناء صفين من الأزرار: فتح الملف + النجوم المطلوبة."""
+    total_stars = file_data.get("total_stars", 0)
+    current_stars = file_data.get("current_stars", 0)
+    remaining = max(0, total_stars - current_stars)
     keyboard = [
         [
             InlineKeyboardButton(
-                "🔓 فتح الملف",
+                "🔓 فتح الملف الآن",
                 url=f"https://t.me/{BOT_USERNAME}?start=watch_{file_key}",
             )
         ],
         [
             InlineKeyboardButton(
-                "⭐ النجوم المطلوبة",
+                f"⭐ النجوم المطلوبة: {remaining}/{total_stars}",
                 url=f"https://t.me/{BOT_USERNAME}?start=support_{file_key}",
             )
         ]
