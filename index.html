@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AEMODE - Unlock System</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --blue: #4f46e5;
+            --violet: #a855f7;
+            --cyan: #22d3ee;
+            --dark: #030014
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent
+        }
+
+        body {
+            background: var(--dark);
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center
+        }
+
+        #stars {
+            position: fixed;
+            inset: 0;
+            z-index: 0
+        }
+
+        .vp {
+            position: relative;
+            z-index: 10;
+            width: 92%;
+            max-width: 420px
+        }
+
+        .card {
+            background: rgba(255, 255, 255, .04);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 36px;
+            padding: 48px 28px 36px;
+            text-align: center;
+            position: relative;
+            overflow: hidden
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 38px;
+            background: linear-gradient(135deg, var(--blue), var(--violet), var(--cyan));
+            z-index: -1;
+            opacity: .22;
+            filter: blur(18px);
+            animation: gp 4s ease-in-out infinite alternate
+        }
+
+        @keyframes gp {
+            0% {
+                opacity: .15
+            }
+
+            100% {
+                opacity: .35
+            }
+        }
+
+        .lock {
+            font-size: 72px;
+            display: inline-block;
+            filter: drop-shadow(0 0 25px var(--violet));
+            transition: transform .5s cubic-bezier(.34, 1.56, .64, 1);
+            cursor: pointer;
+            margin-bottom: 22px
+        }
+
+        .lock.open {
+            transform: scale(1.25) rotate(-12deg)
+        }
+
+        .brand {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 8px;
+            color: var(--cyan);
+            text-transform: uppercase;
+            opacity: .65;
+            margin-bottom: 6px
+        }
+
+        .title {
+            font-size: 28px;
+            font-weight: 900;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #818cf8, var(--violet), var(--cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent
+        }
+
+        .desc {
+            font-size: 15px;
+            line-height: 1.65;
+            color: rgba(255, 255, 255, .55);
+            margin-bottom: 38px
+        }
+
+        .btn {
+            position: relative;
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 60px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 17px;
+            font-weight: 700;
+            color: #fff;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--blue), var(--violet));
+            box-shadow: 0 8px 28px rgba(79, 70, 229, .35);
+            transition: transform .2s;
+            overflow: hidden
+        }
+
+        .btn:active {
+            transform: scale(.96)
+        }
+
+        .btn:disabled {
+            opacity: .4;
+            cursor: not-allowed;
+            filter: saturate(.3)
+        }
+
+        .btn::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -60%;
+            width: 220%;
+            height: 200%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .07), transparent);
+            transform: rotate(25deg);
+            animation: sh 3s infinite
+        }
+
+        @keyframes sh {
+            0% {
+                left: -60%
+            }
+
+            100% {
+                left: 120%
+            }
+        }
+
+        .st {
+            margin-top: 20px;
+            padding: 10px 18px;
+            border-radius: 14px;
+            font-size: 13px;
+            display: none
+        }
+
+        .st.err {
+            display: block;
+            background: rgba(239, 68, 68, .1);
+            border: 1px solid rgba(239, 68, 68, .25);
+            color: #f87171
+        }
+
+        .st.ok {
+            display: block;
+            background: rgba(34, 197, 94, .1);
+            border: 1px solid rgba(34, 197, 94, .25);
+            color: #4ade80
+        }
+
+        .st.ld {
+            display: block;
+            background: rgba(99, 102, 241, .1);
+            border: 1px solid rgba(99, 102, 241, .25);
+            color: #a5b4fc
+        }
+
+        .foot {
+            margin-top: 22px;
+            font-size: 10px;
+            letter-spacing: 3px;
+            color: rgba(255, 255, 255, .18)
+        }
+
+        #dbg {
+            position: fixed;
+            bottom: 8px;
+            left: 8px;
+            font-size: 10px;
+            color: rgba(255, 255, 255, .25);
+            z-index: 99;
+            direction: ltr;
+            text-align: left;
+            max-width: 90%
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="stars"></canvas>
+    <div id="dbg"></div>
+
+    <div class="vp">
+        <div class="card">
+            <span class="lock" id="lock">🔒</span>
+            <div class="brand">AEMODE</div>
+            <div class="title">ساهم في فك القفل</div>
+            <p class="desc">شاهد إعلاناً قصيراً لفتح الملف مجاناً<br>للجميع في القناة.</p>
+            <button class="btn" id="adBtn"><span id="btnTxt">📹 شاهد الإعلان الآن</span></button>
+            <div class="st" id="st"></div>
+            <div class="foot">AEMODE UNLOCK SYSTEM v4</div>
+        </div>
+    </div>
+
+    <!--
+═══════════════════════════════════════════════════
+  Monetag Rewarded Interstitial SDK
+  Zone ID: 10682642
+  رابط SDK الرسمي من لوحة تحكم Monetag
+═══════════════════════════════════════════════════
+-->
+    <script src='https://libtl.com/sdk.js' data-zone='10682642' data-sdk='show_10682642'></script>
+
+    <script>
+        // ═══════════════════════════════════
+        //  Debug Logger
+        // ═══════════════════════════════════
+        const dbg = document.getElementById('dbg');
+        function log(msg) {
+            console.log('[AEMODE]', msg);
+            dbg.textContent = msg;
+        }
+
+        // ═══════════════════════════════════
+        //  Telegram WebApp Init
+        // ═══════════════════════════════════
+        const tele = window.Telegram.WebApp;
+        tele.expand();
+        tele.ready();
+        log('WebApp ready. Waiting for ad SDK...');
+
+        // ═══════════════════════════════════
+        //  Starfield Background
+        // ═══════════════════════════════════
+        (function () {
+            const c = document.getElementById('stars'), x = c.getContext('2d'); let pts = [];
+            function init() { c.width = innerWidth; c.height = innerHeight; pts = []; for (let i = 0; i < 100; i++)pts.push({ x: Math.random() * c.width, y: Math.random() * c.height, r: Math.random() * 1.4 + .5, dx: (Math.random() - .5) * .25, dy: (Math.random() - .5) * .25, h: Math.random() > .5 ? 260 : 195, a: Math.random() * .5 + .2 }) }
+            function draw() { x.clearRect(0, 0, c.width, c.height); pts.forEach(p => { p.x += p.dx; p.y += p.dy; if (p.x < 0) p.x = c.width; if (p.x > c.width) p.x = 0; if (p.y < 0) p.y = c.height; if (p.y > c.height) p.y = 0; p.a += (Math.random() - .5) * .015; p.a = Math.max(.08, Math.min(.7, p.a)); x.beginPath(); x.arc(p.x, p.y, p.r, 0, Math.PI * 2); x.fillStyle = `hsla(${p.h},80%,70%,${p.a})`; x.fill() }); requestAnimationFrame(draw) }
+            addEventListener('resize', init); init(); draw();
+        })();
+
+        // ═══════════════════════════════════
+        //  Lock
+        // ═══════════════════════════════════
+        const lock = document.getElementById('lock');
+        lock.onclick = () => {
+            if (tele.HapticFeedback) tele.HapticFeedback.impactOccurred('heavy');
+            lock.classList.add('open'); lock.textContent = '🔓';
+            setTimeout(() => { lock.classList.remove('open'); lock.textContent = '🔒'; }, 900);
+        };
+
+        // ═══════════════════════════════════
+        //  SDK Polling — check every 1s
+        // ═══════════════════════════════════
+        let sdkOK = false;
+        let pollN = 0;
+        const poller = setInterval(() => {
+            pollN++;
+            if (typeof show_10682642 === 'function') {
+                sdkOK = true;
+                log('SDK loaded ✅ (show_10682642 ready)');
+                clearInterval(poller);
+            } else if (pollN > 15) {
+                log('SDK NOT loaded after 15s ❌');
+                clearInterval(poller);
+            } else {
+                log('Polling SDK... attempt ' + pollN);
+            }
+        }, 1000);
+
+        // ═══════════════════════════════════
+        //  Main Button Logic
+        // ═══════════════════════════════════
+        const adBtn = document.getElementById('adBtn');
+        const btnTxt = document.getElementById('btnTxt');
+        const stBox = document.getElementById('st');
+
+        function setS(msg, type) { stBox.className = 'st ' + type; stBox.textContent = msg; }
+
+        function sendDone() {
+            if (tele.HapticFeedback) tele.HapticFeedback.notificationOccurred('success');
+            lock.textContent = '🔓'; lock.classList.add('open');
+            setS('✅ تم التحقق بنجاح! جاري الإرسال للبوت...', 'ok');
+            log('Sending view_completed to bot...');
+            tele.sendData('view_completed');
+            setTimeout(() => tele.close(), 1500);
+        }
+
+        adBtn.onclick = function () {
+            if (tele.HapticFeedback) tele.HapticFeedback.impactOccurred('medium');
+            adBtn.disabled = true;
+            btnTxt.textContent = '⏳ جاري التحميل...';
+            setS('⏳ جاري تحميل الإعلان...', 'ld');
+
+            log('Button clicked. SDK status: ' + (typeof show_10682642));
+
+            // Case 1: SDK loaded — show ad
+            if (typeof show_10682642 === 'function') {
+                log('Calling show_10682642()...');
+                try {
+                    show_10682642().then(() => {
+                        log('Ad completed successfully!');
+                        sendDone();
+                    }).catch((err) => {
+                        log('Ad promise rejected: ' + err);
+                        // Ad was attempted but failed — still count it
+                        setS('⚠️ الإعلان فشل، ولكن سيتم احتساب محاولتك.', 'err');
+                        setTimeout(() => sendDone(), 2000);
+                    });
+                } catch (e) {
+                    log('Ad call threw error: ' + e);
+                    setS('⚠️ خطأ تقني، جاري الإرسال...', 'err');
+                    setTimeout(() => sendDone(), 2000);
+                }
+            }
+            // Case 2: SDK not loaded — wait 8s then send anyway
+            else {
+                log('SDK not available. Starting 8s countdown...');
+                setS('⏳ جاري تحميل نظام الإعلانات...', 'ld');
+
+                let waited = 0;
+                const waitInterval = setInterval(() => {
+                    waited++;
+
+                    // Check if SDK loaded while waiting
+                    if (typeof show_10682642 === 'function') {
+                        clearInterval(waitInterval);
+                        log('SDK loaded during wait! Showing ad...');
+                        show_10682642().then(() => sendDone()).catch(() => sendDone());
+                        return;
+                    }
+
+                    if (waited >= 8) {
+                        clearInterval(waitInterval);
+                        log('8s timeout reached. Sending data directly.');
+                        setS('⚠️ تعذر تحميل الإعلان. جاري إرسال المساهمة...', 'err');
+                        setTimeout(() => sendDone(), 1500);
+                    }
+                }, 1000);
+            }
+        };
+    </script>
+</body>
+
+</html>
