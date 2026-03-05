@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مشاهدة الإعلان للمساهمة</title>
+    <!-- استدعاء مكتبة Telegram WebApp -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- كود إعلانات Monetag (Rewarded Interstitial) -->
+    <script src='https://alwingulla.com/88/p.js' data-pinform='6141' data-pform='6141'></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content : center;
+            align-items: center;
+            color: white;
+            text-align: center;
+        }
+        .container {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            max-width: 90%;
+        }
+        .btn {
+            background: #0088cc;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,136,204,0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎁 ساهم في فتح الملف مجاناً</h1>
+        <p>بمشاهدتك لهذا الإعلان القصير، أنت تساهم في وصول الملف للجميع في القناة.</p>
+        <button class="btn" id="showAdBtn">📹 اضغط هنا لمشاهدة الإعلان</button>
+    </div>
+
+    <script>
+        const tele = window.Telegram.WebApp;
+        tele.expand();
+
+        document.getElementById('showAdBtn').onclick = function() {
+            this.disabled = true;
+            this.innerText = '⏳ جاري التحميل...';
+
+            if (typeof show_10682642 === 'function') {
+                show_10682642().then(() => {
+                    // إرسال الإشارة للبوت فور انتهاء الإعلان
+                    tele.sendData('view_completed');
+                    tele.close(); // إغلاق الصفحة
+                }).catch((err) => {
+                    console.error('Ad Error:', err);
+                    this.disabled = false;
+                    this.innerText = '📹 اضغط هنا لمشاهدة الإعلان';
+                });
+            }
+        };
+    </script>
+</body>
+</html>
