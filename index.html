@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AEMODE - Unlock System</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!--
+        ══════════════════════════════════════════════
+        Monetag Rewarded Interstitial SDK
+        Zone ID: 10682642
+        This script MUST be loaded in <head> so that
+        the global function show_10682642() is ready.
+        ══════════════════════════════════════════════
+    -->
+    <script type="text/javascript" src="https://alwingulla.com/88/tag.min.js" data-zone="10682642"
+        data-sdk="show_10682642"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ae-blue: #4f46e5;
+            --ae-violet: #a855f7;
+            --ae-cyan: #22d3ee;
+            --ae-dark: #030014;
+            --glass: rgba(255, 255, 255, 0.04);
+            --glass-b: rgba(255, 255, 255, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent
+        }
+
+        body {
+            background: var(--ae-dark);
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #stars {
+            position: fixed;
+            inset: 0;
+            z-index: 0
+        }
+
+        .vp {
+            position: relative;
+            z-index: 10;
+            width: 92%;
+            max-width: 420px
+        }
+
+        .card {
+            background: var(--glass);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid var(--glass-b);
+            border-radius: 36px;
+            padding: 48px 28px 36px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 38px;
+            background: linear-gradient(135deg, var(--ae-blue), var(--ae-violet), var(--ae-cyan));
+            z-index: -1;
+            opacity: .22;
+            filter: blur(18px);
+            animation: gp 4s ease-in-out infinite alternate;
+        }
+
+        @keyframes gp {
+            0% {
+                opacity: .15
+            }
+
+            100% {
+                opacity: .35
+            }
+        }
+
+        .lock {
+            font-size: 72px;
+            display: inline-block;
+            filter: drop-shadow(0 0 25px var(--ae-violet));
+            transition: transform .5s cubic-bezier(.34, 1.56, .64, 1);
+            cursor: pointer;
+            margin-bottom: 22px;
+        }
+
+        .lock.open {
+            transform: scale(1.25) rotate(-12deg)
+        }
+
+        .brand {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 8px;
+            color: var(--ae-cyan);
+            text-transform: uppercase;
+            opacity: .65;
+            margin-bottom: 6px
+        }
+
+        .title {
+            font-size: 28px;
+            font-weight: 900;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #818cf8, var(--ae-violet), var(--ae-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .desc {
+            font-size: 15px;
+            line-height: 1.65;
+            color: rgba(255, 255, 255, .55);
+            margin-bottom: 38px
+        }
+
+        .btn-main {
+            position: relative;
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 60px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 17px;
+            font-weight: 700;
+            color: #fff;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--ae-blue), var(--ae-violet));
+            box-shadow: 0 8px 28px rgba(79, 70, 229, .35);
+            transition: transform .2s, box-shadow .2s;
+            overflow: hidden;
+        }
+
+        .btn-main:active {
+            transform: scale(.96)
+        }
+
+        .btn-main:disabled {
+            opacity: .4;
+            cursor: not-allowed;
+            filter: saturate(.3)
+        }
+
+        .btn-main::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -60%;
+            width: 220%;
+            height: 200%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .07), transparent);
+            transform: rotate(25deg);
+            animation: sh 3s infinite;
+        }
+
+        @keyframes sh {
+            0% {
+                left: -60%
+            }
+
+            100% {
+                left: 120%
+            }
+        }
+
+        .btn-manual {
+            display: none;
+            width: 100%;
+            padding: 16px;
+            margin-top: 14px;
+            border: 1px solid rgba(255, 255, 255, .12);
+            border-radius: 60px;
+            background: rgba(255, 255, 255, .04);
+            color: var(--ae-cyan);
+            font-family: 'Outfit', sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform .2s;
+        }
+
+        .btn-manual:active {
+            transform: scale(.97)
+        }
+
+        .st {
+            margin-top: 20px;
+            padding: 10px 18px;
+            border-radius: 14px;
+            font-size: 13px;
+            display: none
+        }
+
+        .st.err {
+            display: block;
+            background: rgba(239, 68, 68, .1);
+            border: 1px solid rgba(239, 68, 68, .25);
+            color: #f87171
+        }
+
+        .st.ok {
+            display: block;
+            background: rgba(34, 197, 94, .1);
+            border: 1px solid rgba(34, 197, 94, .25);
+            color: #4ade80
+        }
+
+        .st.ld {
+            display: block;
+            background: rgba(99, 102, 241, .1);
+            border: 1px solid rgba(99, 102, 241, .25);
+            color: #a5b4fc
+        }
+
+        .foot {
+            margin-top: 22px;
+            font-size: 10px;
+            letter-spacing: 3px;
+            color: rgba(255, 255, 255, .18)
+        }
+
+        /* Debug indicator */
+        #sdkStatus {
+            position: fixed;
+            top: 8px;
+            left: 8px;
+            font-size: 10px;
+            color: rgba(255, 255, 255, .3);
+            z-index: 99
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="stars"></canvas>
+    <div id="sdkStatus">SDK: checking...</div>
+
+    <div class="vp">
+        <div class="card">
+            <span class="lock" id="lock">🔒</span>
+            <div class="brand">AEMODE</div>
+            <div class="title">ساهم في فك القفل</div>
+            <p class="desc">شاهد إعلاناً قصيراً لفتح الملف مجاناً<br>للجميع في القناة.</p>
+
+            <button class="btn-main" id="mainBtn">
+                <span id="btnTxt">📹 شاهد الإعلان الآن</span>
+            </button>
+            <button class="btn-manual" id="manualBtn">⚡ تجاوز يدوي</button>
+            <div class="st" id="st"></div>
+            <div class="foot">AEMODE UNLOCK SYSTEM v3</div>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════
+        //  Telegram WebApp
+        // ═══════════════════════════════════════
+        const tele = window.Telegram.WebApp;
+        tele.expand();
+        tele.ready();
+
+        // ═══════════════════════════════════════
+        //  Starfield Background
+        // ═══════════════════════════════════════
+        (function () {
+            const c = document.getElementById('stars'), x = c.getContext('2d');
+            let pts = [];
+            function init() {
+                c.width = innerWidth; c.height = innerHeight; pts = [];
+                for (let i = 0; i < 110; i++) pts.push({
+                    x: Math.random() * c.width, y: Math.random() * c.height,
+                    r: Math.random() * 1.4 + .5,
+                    dx: (Math.random() - .5) * .25, dy: (Math.random() - .5) * .25,
+                    h: Math.random() > .5 ? 260 : 195,
+                    a: Math.random() * .5 + .2
+                });
+            }
+            function draw() {
+                x.clearRect(0, 0, c.width, c.height);
+                pts.forEach(p => {
+                    p.x += p.dx; p.y += p.dy;
+                    if (p.x < 0) p.x = c.width; if (p.x > c.width) p.x = 0;
+                    if (p.y < 0) p.y = c.height; if (p.y > c.height) p.y = 0;
+                    p.a += (Math.random() - .5) * .015;
+                    p.a = Math.max(.08, Math.min(.7, p.a));
+                    x.beginPath(); x.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                    x.fillStyle = `hsla(${p.h},80%,70%,${p.a})`; x.fill();
+                });
+                requestAnimationFrame(draw);
+            }
+            addEventListener('resize', init); init(); draw();
+        })();
+
+        // ═══════════════════════════════════════
+        //  Interactive Lock
+        // ═══════════════════════════════════════
+        const lock = document.getElementById('lock');
+        lock.onclick = () => {
+            if (tele.HapticFeedback) tele.HapticFeedback.impactOccurred('heavy');
+            lock.classList.add('open'); lock.textContent = '🔓';
+            setTimeout(() => { lock.classList.remove('open'); lock.textContent = '🔒' }, 900);
+        };
+
+        // ═══════════════════════════════════════
+        //  SDK Status Checker
+        // ═══════════════════════════════════════
+        const sdkEl = document.getElementById('sdkStatus');
+        let sdkReady = false;
+
+        function checkSDK() {
+            if (typeof show_10682642 === 'function') {
+                sdkReady = true;
+                sdkEl.textContent = 'SDK: ✅ ready';
+                sdkEl.style.color = 'rgba(34,197,94,.5)';
+                return true;
+            }
+            return false;
+        }
+
+        // Poll every 500ms for up to 15s
+        let pollCount = 0;
+        const pollInterval = setInterval(() => {
+            pollCount++;
+            if (checkSDK() || pollCount > 30) {
+                clearInterval(pollInterval);
+                if (!sdkReady) {
+                    sdkEl.textContent = 'SDK: ❌ not loaded';
+                    sdkEl.style.color = 'rgba(239,68,68,.5)';
+                }
+            }
+        }, 500);
+
+        // ═══════════════════════════════════════
+        //  Ad Engine + Bot Bridge
+        // ═══════════════════════════════════════
+        const mainBtn = document.getElementById('mainBtn');
+        const btnTxt = document.getElementById('btnTxt');
+        const manualBtn = document.getElementById('manualBtn');
+        const stBox = document.getElementById('st');
+
+        function setS(msg, type) { stBox.className = 'st ' + type; stBox.textContent = msg }
+
+        function sendDone() {
+            if (tele.HapticFeedback) tele.HapticFeedback.notificationOccurred('success');
+            lock.textContent = '🔓'; lock.classList.add('open');
+            setS('✅ تم التحقق بنجاح! جاري الإرسال للبوت...', 'ok');
+            tele.sendData('view_completed');
+            setTimeout(() => tele.close(), 1500);
+        }
+
+        function resetBtn() {
+            mainBtn.disabled = false;
+            btnTxt.textContent = '📹 شاهد الإعلان الآن';
+        }
+
+        mainBtn.onclick = function () {
+            if (tele.HapticFeedback) tele.HapticFeedback.impactOccurred('medium');
+            mainBtn.disabled = true;
+            btnTxt.textContent = '⏳ جاري التحميل...';
+            setS('⏳ جاري الاتصال بخادم الإعلانات...', 'ld');
+            manualBtn.style.display = 'none';
+
+            let done = false;
+
+            // ⏱ Anti-Stuck: 8 second timeout
+            const timer = setTimeout(() => {
+                if (!done) {
+                    manualBtn.style.display = 'block';
+                    setS('⚠️ الإعلان لم يستجب. اضغط التجاوز اليدوي.', 'err');
+                    resetBtn();
+                    if (tele.HapticFeedback) tele.HapticFeedback.notificationOccurred('error');
+                }
+            }, 8000);
+
+            // Check if SDK function exists
+            if (typeof show_10682642 === 'function') {
+                try {
+                    show_10682642().then(() => {
+                        done = true; clearTimeout(timer);
+                        sendDone();
+                    }).catch((e) => {
+                        done = true; clearTimeout(timer);
+                        console.error('Ad error:', e);
+                        manualBtn.style.display = 'block';
+                        setS('⚠️ فشل عرض الإعلان. جرب التجاوز اليدوي.', 'err');
+                        resetBtn();
+                    });
+                } catch (e) {
+                    done = true; clearTimeout(timer);
+                    console.error('Ad call error:', e);
+                    manualBtn.style.display = 'block';
+                    setS('⚠️ خطأ في استدعاء الإعلان.', 'err');
+                    resetBtn();
+                }
+            } else {
+                // SDK not loaded — show manual button immediately
+                setS('⚠️ نظام الإعلانات لم يتحمل بعد. انتظر أو جرب التجاوز.', 'err');
+                manualBtn.style.display = 'block';
+                resetBtn();
+            }
+        };
+
+        // ⚡ Manual Fallback — sends data directly
+        manualBtn.onclick = function () {
+            if (tele.HapticFeedback) tele.HapticFeedback.impactOccurred('heavy');
+            manualBtn.disabled = true;
+            manualBtn.textContent = '⏳ جاري المعالجة...';
+            setS('⏳ جاري التجاوز اليدوي...', 'ld');
+
+            // Try ad one more time, then send data regardless
+            if (typeof show_10682642 === 'function') {
+                show_10682642().then(() => sendDone()).catch(() => sendDone());
+            } else {
+                sendDone();
+            }
+        };
+    </script>
+</body>
+
+</html>
