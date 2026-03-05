@@ -137,10 +137,11 @@ def load_data() -> dict:
                     data[key] = type(default_val)()
             
             # تنظيف الجلسات القديمة (أكثر من 24 ساعة) لتوفير الذاكرة ومنع تضخم الملف
-            now = time.time()
+            current_time = time.time()
+            now = datetime.now() # للتوثيق وتجنب أخطاء التعريف
             if "active_watch_sessions" in data:
                 expired = [k for k, v in data["active_watch_sessions"].items() 
-                           if now - v.get("start_time", 0) > 86400]
+                           if current_time - v.get("start_time", 0) > 86400]
                 for k in expired:
                     del data["active_watch_sessions"][k]
             
@@ -365,7 +366,8 @@ async def check_protection(
 
     data = load_data()
     uid = str(user_id)
-    now = time.time()
+    current_ts = time.time()
+    now = datetime.now() # تعريف 'now' كما طلب المستخدم لتجنب أخطاء برمجية أخرى
 
     # ── التحقق من الحظر ──
     if user_id in data["banned_users"]:
@@ -373,7 +375,7 @@ async def check_protection(
 
     # ── فحص معدل العمليات (Rate Limit) ──
     last_action = data["user_last_action"].get(uid, 0)
-    if now - last_action < RATE_LIMIT_SECONDS:
+    if current_ts - last_action < RATE_LIMIT_SECONDS:
         await add_violation(data, user_id, "rate_limit", context)
         return False, f"⚠️ انتظر {RATE_LIMIT_SECONDS} ثواني بين كل عملية."
 
@@ -384,7 +386,7 @@ async def check_protection(
     stats = data["user_stats"][uid]
 
     # ── فحص السبام (5 عمليات في 30 ثانية) ──
-    stats["actions"] = [t for t in stats["actions"] if now - t < SPAM_WINDOW]
+    stats["actions"] = [t for t in stats["actions"] if current_ts - t < SPAM_WINDOW]
     if len(stats["actions"]) >= SPAM_THRESHOLD:
         await add_violation(data, user_id, "spam", context)
         return False, "⚠️ تم كشف سبام! انتظر قليلاً قبل المحاولة مرة أخرى."
@@ -397,8 +399,8 @@ async def check_protection(
             return False, "⚠️ تم كشف قفزة غير طبيعية في عدد النجوم!"
 
     # ── تحديث الإحصائيات ──
-    stats["actions"].append(now)
-    data["user_last_action"][uid] = now
+    stats["actions"].append(current_ts)
+    data["user_last_action"][uid] = current_ts
     save_data(data)
 
     return True, ""
@@ -1344,7 +1346,9 @@ async def _handle_view_completed(update: Update, context: ContextTypes.DEFAULT_T
         save_data(data)
         return
 
-    now = time.time()
+    now_ts = time.time()
+    now_log = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
     # زيادة عداد المشاهدات
     file_data["current_views"] = file_data.get("current_views", 0) + 1
 
@@ -1353,10 +1357,11 @@ async def _handle_view_completed(update: Update, context: ContextTypes.DEFAULT_T
         file_data["ad_viewers"] = []
     file_data["ad_viewers"].append({
         "user_id": user_id,
-        "timestamp": now,
+        "timestamp": now_ts,
+        "time_str": now_log
     })
 
-    add_log(data, "ad_view", user_id, f"Key: {file_key}, Views: {file_data['current_views']}/{required_views}")
+    add_log(data, "ad_view", user_id, f"Key: {file_key}, Views: {file_data['current_views']}/{required_views} at {now_log}")
     save_data(data)
 
     current_views = file_data["current_views"]
@@ -1504,9 +1509,9 @@ async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE)
             watch_token = context.user_data.get("current_watch_token")
             
         if watch_token:
-            # رسالة فورية حسب طلب المستخدم
+            # رسالة النجاح الفورية كما طلب المستخدم
             await update.message.reply_text(
-                "✅ <b>تم تأكيد مشاهدة الإعلان بنجاح! شكراً لمساهمتك.</b>",
+                "✅ <b>أحسنت!</b> تمت مشاهدة الإعلان بنجاح، جاري تحديث العداد.",
                 parse_mode="HTML"
             )
             # معالجة إكمال المشاهدة (زيادة العداد وتحديث القناة)
