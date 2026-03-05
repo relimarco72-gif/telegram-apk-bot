@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مشاهدة الإعلان للمساهمة</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- كود إعلانات Monetag (Rewarded Interstitial) -->
+    <script src='https://alwingulla.com/88/p.js' data-pinform='6141' data-pform='6141'></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            width: 85%;
+        }
+        .btn {
+            background: #0088cc;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>🎁 ساهم في فتح الملف</h2>
+        <p>اضغط على الزر أدناه لمشاهدة الإعلان والمساهمة في فك القفل للجميع.</p>
+        <button class="btn" id="showAdBtn">📹 شاهد الإعلان الآن</button>
+    </div>
+
+    <script>
+        const tele = window.Telegram.WebApp;
+        tele.expand();
+
+        document.getElementById('showAdBtn').onclick = function() {
+            this.disabled = true;
+            this.innerText = '⏳ جاري تحميل الإعلان...';
+
+            if (typeof show_10682642 === 'function') {
+                show_10682642().then(() => {
+                    // إرسال الإشارة للبوت فور انتهاء الإعلان
+                    tele.sendData('view_completed');
+                    tele.close();
+                }).catch((err) => {
+                    this.disabled = false;
+                    this.innerText = '📹 شاهد الإعلان الآن';
+                    alert('فشل تحميل الإعلان، حاول مرة أخرى.');
+                });
+            }
+        };
+    </script>
+</body>
+</html>
