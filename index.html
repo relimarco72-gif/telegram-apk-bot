@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Antigravity Ad Panel</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- كود إعلانات Monetag (Rewarded Interstitial) -->
+    <script src='https://alwingulla.com/88/p.js' data-pinform='6141' data-pform='6141'></script>
+    <style>
+        :root {
+            --neon-cyan: #00f2ff;
+            --neon-magenta: #ff00ff;
+            --bg-dark: #050510;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            overflow: hidden;
+            background: var(--bg-dark);
+            color: white;
+            font-family: 'Outfit', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #particleCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            width: 100%;
+            height: 100%;
+        }
+
+        .ui-viewport {
+            position: relative;
+            z-index: 10;
+            width: 90%;
+            max-width: 450px;
+            perspective: 2000px;
+        }
+
+        .premium-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border);
+            border-radius: 40px;
+            padding: 50px 30px;
+            text-align: center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5),
+                0 0 30px rgba(0, 242, 255, 0.1);
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+            animation: initialFloat 4s ease-in-out infinite alternate;
+        }
+
+        @keyframes initialFloat {
+            from {
+                transform: translateY(0px) rotateX(0deg);
+            }
+
+            to {
+                transform: translateY(-20px) rotateX(2deg);
+            }
+        }
+
+        .header-section {
+            transform: translateZ(50px);
+            margin-bottom: 30px;
+        }
+
+        .neon-title {
+            font-size: 32px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 10px rgba(0, 242, 255, 0.5));
+            text-transform: uppercase;
+        }
+
+        .divider {
+            height: 2px;
+            width: 60px;
+            background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
+            margin: 15px auto;
+            border-radius: 2px;
+            box-shadow: 0 0 10px var(--neon-cyan);
+        }
+
+        .description {
+            transform: translateZ(30px);
+            font-size: 17px;
+            line-height: 1.7;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 45px;
+        }
+
+        .ad-button-container {
+            transform: translateZ(60px);
+        }
+
+        .ad-button {
+            position: relative;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 20px 40px;
+            border-radius: 100px;
+            color: white;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .ad-button::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, var(--neon-cyan), var(--neon-magenta));
+            opacity: 0.15;
+            transition: 0.3s;
+        }
+
+        .ad-button:hover:not(:disabled) {
+            transform: scale(1.05);
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 20px rgba(0, 242, 255, 0.4);
+        }
+
+        .ad-button:active {
+            transform: scale(0.95);
+        }
+
+        .ad-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: grayscale(1);
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+            display: none;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .footer-info {
+            margin-top: 30px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+            letter-spacing: 1px;
+        }
+
+        /* Error Alert */
+        #errorAlert {
+            display: none;
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 77, 77, 0.15);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 77, 77, 0.4);
+            padding: 12px 25px;
+            border-radius: 15px;
+            color: #ff4d4d;
+            font-size: 14px;
+            z-index: 100;
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translate(-50%, 20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translate(-50%, 0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <canvas id="particleCanvas"></canvas>
+
+    <div class="ui-viewport">
+        <div class="premium-card" id="premiumCard">
+            <div class="header-section">
+                <div class="neon-title">ANTIGRAVITY</div>
+                <div class="divider"></div>
+            </div>
+
+            <p class="description">
+                ادعم المجتمع بمشاهدة إعلان مكافأة.<br>
+                سيتم فك القفل عن الملف للجميع فوراً.
+            </p>
+
+            <div class="ad-button-container">
+                <button class="ad-button" id="showAdBtn">
+                    <span id="btnLabel">📹 شاهد الإعلان للمساهمة</span>
+                    <div class="loading-spinner" id="spinner"></div>
+                </button>
+            </div>
+
+            <div class="footer-info">SECURED BY TELEGRAM WEBAPP SDK</div>
+        </div>
+    </div>
+
+    <div id="errorAlert">⚠️ تعذر تحميل الإعلان، حاول مرة أخرى.</div>
+
+    <script>
+        const tele = window.Telegram.WebApp;
+        tele.expand();
+        tele.ready();
+
+        // --- Particle & UI Engine ---
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        const card = document.getElementById('premiumCard');
+        let particles = [];
+        let interactionPoint = { x: -100, y: -100 };
+
+        function initParticles() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            particles = [];
+            for (let i = 0; i < 120; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    z: Math.random() * 2 + 1,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    color: Math.random() > 0.5 ? '#00f2ff' : '#ff00ff'
+                });
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            particles.forEach(p => {
+                // Movement
+                p.x += p.vx;
+                p.y += p.vy;
+
+                // Wrap around
+                if (p.x < 0) p.x = canvas.width;
+                if (p.x > canvas.width) p.x = 0;
+                if (p.y < 0) p.y = canvas.height;
+                if (p.y > canvas.height) p.y = 0;
+
+                // Mouse/Touch Interaction
+                const dx = interactionPoint.x - p.x;
+                const dy = interactionPoint.y - p.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 150) {
+                    p.x += dx * 0.05;
+                    p.y += dy * 0.05;
+                }
+
+                // Drawing
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = 0.6;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.z, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        // --- Interaction Handlers ---
+        window.addEventListener('mousemove', (e) => {
+            interactionPoint.x = e.clientX;
+            interactionPoint.y = e.clientY;
+
+            // Card Tilt Logic
+            const xAxis = (window.innerWidth / 2 - e.pageX) / 30;
+            const yAxis = (window.innerHeight / 2 - e.pageY) / 30;
+            card.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
+        });
+
+        window.addEventListener('touchstart', (e) => {
+            interactionPoint.x = e.touches[0].clientX;
+            interactionPoint.y = e.touches[0].clientY;
+        });
+
+        window.addEventListener('resize', initParticles);
+        initParticles();
+        animate();
+
+        // --- Ad Bridge Logic ---
+        const adBtn = document.getElementById('showAdBtn');
+        const btnLabel = document.getElementById('btnLabel');
+        const spinner = document.getElementById('spinner');
+        const errorAlert = document.getElementById('errorAlert');
+
+        adBtn.onclick = function () {
+            // Haptic Feedback
+            if (tele.HapticFeedback) tele.HapticFeedback.impactOccurred('medium');
+
+            this.disabled = true;
+            btnLabel.innerText = '⏳ جاري التحميل...';
+            spinner.style.display = 'inline-block';
+            errorAlert.style.display = 'none';
+
+            let adTriggered = false;
+
+            // Protection against stuck state (5s timeout)
+            const adTimeout = setTimeout(() => {
+                if (!adTriggered) {
+                    resetButton();
+                    showError();
+                    if (tele.HapticFeedback) tele.HapticFeedback.notificationOccurred('error');
+                }
+            }, 5000);
+
+            // Execute Monetag Rewarded Interstitial
+            if (typeof show_10682642 === 'function') {
+                adTriggered = true;
+                show_10682642().then(() => {
+                    clearTimeout(adTimeout);
+                    if (tele.HapticFeedback) tele.HapticFeedback.notificationOccurred('success');
+
+                    // Communicate with Bot
+                    tele.sendData('view_completed');
+
+                    btnLabel.innerText = '✅ تم التوثيق بنجاح';
+                    spinner.style.display = 'none';
+
+                    // Close WebApp after a short delay
+                    setTimeout(() => tele.close(), 1500);
+                }).catch((err) => {
+                    clearTimeout(adTimeout);
+                    resetButton();
+                    showError();
+                });
+            } else {
+                clearTimeout(adTimeout);
+                resetButton();
+                showError();
+                btnLabel.innerText = '⚠️ النظام غير جاهز';
+            }
+        };
+
+        function resetButton() {
+            adBtn.disabled = false;
+            btnLabel.innerText = '📹 شاهد الإعلان للمساهمة';
+            spinner.style.display = 'none';
+        }
+
+        function showError() {
+            errorAlert.style.display = 'block';
+            setTimeout(() => { errorAlert.style.display = 'none'; }, 4000);
+        }
+    </script>
+</body>
+
+</html>
