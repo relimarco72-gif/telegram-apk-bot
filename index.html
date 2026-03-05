@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>فتح الملف - نظام المكافآت</title>
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Monetag SDK -->
+    <script src='//libtl.com/sdk.js' data-zone='10682642' data-sdk='show_10682642'></script>
+
+    <style>
+        :root {
+            --primary-glow: conic-gradient(from 180deg at 50% 50%, #16abff33 0deg, #0885ff33 55deg, #54dfff33 120deg, #0071ff33 160deg, transparent 360deg);
+            --neon-blue: #00d2ff;
+            --neon-green: #39ff14;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #050510;
+            color: #fff;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Animated Gradient Background */
+        .bg-animate {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 50%, #1a1a3a 0%, #050510 100%);
+            z-index: -1;
+        }
+
+        .bg-animate::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            top: -50%;
+            left: -50%;
+            background: var(--primary-glow);
+            animation: rotate 20s linear infinite;
+            filter: blur(60px);
+            opacity: 0.5;
+        }
+
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Main Container - Glassmorphism */
+        .container {
+            position: relative;
+            width: 90%;
+            max-width: 400px;
+            padding: 40px 20px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 30px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        .container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 30px;
+            box-shadow: inset 0 0 20px rgba(0, 210, 255, 0.1);
+            pointer-events: none;
+        }
+
+        /* 3D Icon Animation */
+        .icon-box {
+            position: relative;
+            font-size: 80px;
+            margin-bottom: 30px;
+            filter: drop-shadow(0 0 15px var(--neon-blue));
+            animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0) rotate(5deg);
+            }
+
+            50% {
+                transform: translateY(-15px) rotate(-5deg);
+            }
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, #fff, #888);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: #aaa;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        /* Buttons Style */
+        .btn {
+            position: relative;
+            width: 100%;
+            padding: 18px;
+            border-radius: 15px;
+            border: none;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            overflow: hidden;
+        }
+
+        .btn-neon {
+            background: rgba(0, 210, 255, 0.1);
+            border: 1px solid var(--neon-blue);
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
+        }
+
+        .btn-neon:hover {
+            background: var(--neon-blue);
+            box-shadow: 0 0 30px var(--neon-blue);
+            transform: scale(1.02);
+        }
+
+        .btn-success {
+            background: rgba(57, 255, 20, 0.1);
+            border: 1px solid var(--neon-green);
+            box-shadow: 0 0 15px rgba(57, 255, 20, 0.3);
+            display: none;
+        }
+
+        .btn-success:active {
+            transform: scale(0.95);
+        }
+
+        /* Timer Circle */
+        .timer-container {
+            display: none;
+            margin: 20px 0;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .timer-circle {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 4px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--neon-blue);
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        .timer-circle::after {
+            content: '';
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            bottom: -4px;
+            left: -4px;
+            border-radius: 50%;
+            border: 4px solid var(--neon-blue);
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .timer-text {
+            font-size: 13px;
+            color: #888;
+        }
+
+        /* Feedback Message */
+        .msg {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 14px;
+            display: none;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .msg-error {
+            background: rgba(255, 50, 50, 0.1);
+            color: #ff5252;
+            border: 1px solid rgba(255, 50, 50, 0.3);
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Ripple Effect */
+        .ripple {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            transform: scale(0);
+            animation: ripple-effect 0.6s linear;
+            pointer-events: none;
+        }
+
+        @keyframes ripple-effect {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="bg-animate"></div>
+
+    <div class="container" id="mainCard">
+        <div class="icon-box">🔒</div>
+        <h1>الملف مقفل</h1>
+        <p class="subtitle">قم بمساهمة مجتمعية بسيطة عبر مشاهدة إعلان المكافأة لفتح الملف فوراً.</p>
+
+        <!-- Ad Start Button -->
+        <button class="btn btn-neon" id="adBtn" onclick="startRewardFlow()">
+            <span>⚡ بدء المشاهدة (فتح الإعلان)</span>
+        </button>
+
+        <!-- Timer UI -->
+        <div class="timer-container" id="timerUI">
+            <div class="timer-circle" id="timerVal">15</div>
+            <p class="timer-text">جاري التحقق من المشاهدة.. يرجى البقاء في الصفحة</p>
+        </div>
+
+        <!-- Claim Button -->
+        <button class="btn btn-success" id="claimBtn" onclick="finalizeContribution()">
+            <span>✅ تأكيد واستلام الملف</span>
+        </button>
+
+        <!-- Error Message -->
+        <div class="msg msg-error" id="errorMsg">
+            ⚠️ عذراً! لم تكمل مشاهدة الإعلان. يجب المشاهدة كاملة للحصول على الملف.
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        const adBtn = document.getElementById('adBtn');
+        const claimBtn = document.getElementById('claimBtn');
+        const timerUI = document.getElementById('timerUI');
+        const timerVal = document.getElementById('timerVal');
+        const errorMsg = document.getElementById('errorMsg');
+        const mainCard = document.getElementById('mainCard');
+
+        let countdown;
+
+        // Ripple Effect Logic
+        document.addEventListener('touchstart', (e) => {
+            const ripple = document.createElement('div');
+            ripple.className = 'ripple';
+            document.body.appendChild(ripple);
+
+            const touch = e.touches[0];
+            ripple.style.left = `${touch.clientX - 10}px`;
+            ripple.style.top = `${touch.clientY - 10}px`;
+
+            setTimeout(() => ripple.remove(), 600);
+        });
+
+        // Magnetic Button Effect (Basic)
+        adBtn.addEventListener('touchmove', (e) => {
+            const touch = e.touches[0];
+            const rect = adBtn.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const deltaX = (touch.clientX - centerX) * 0.15;
+            const deltaY = (touch.clientY - centerY) * 0.15;
+            adBtn.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+        });
+
+        adBtn.addEventListener('touchend', () => {
+            adBtn.style.transform = `translate(0, 0)`;
+        });
+
+        function startRewardFlow() {
+            errorMsg.style.display = 'none';
+
+            // Monetag Rewarded Interstitial Call
+            show_10682642().then(() => {
+                // Success Block
+                startCountdown();
+            }).catch((err) => {
+                // Dismissal / Error Block
+                handleError();
+            });
+        }
+
+        function handleError() {
+            tg.HapticFeedback.notificationOccurred('error');
+            errorMsg.style.display = 'block';
+        }
+
+        function startCountdown() {
+            adBtn.style.display = 'none';
+            timerUI.style.display = 'flex';
+
+            let timeLeft = 15;
+            timerVal.textContent = timeLeft;
+
+            countdown = setInterval(() => {
+                timeLeft--;
+                timerVal.textContent = timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(countdown);
+                    showClaimButton();
+                }
+            }, 1000);
+        }
+
+        function showClaimButton() {
+            timerUI.style.display = 'none';
+            claimBtn.style.display = 'flex';
+            tg.HapticFeedback.impactOccurred('medium');
+        }
+
+        function finalizeContribution() {
+            tg.HapticFeedback.notificationOccurred('success');
+
+            // Send data back to the bot
+            tg.sendData('view_completed');
+
+            // Auto close after 0.5s
+            setTimeout(() => {
+                tg.close();
+            }, 500);
+        }
+    </script>
+
+</body>
+
+</html>
