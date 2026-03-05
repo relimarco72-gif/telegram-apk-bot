@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AEMODE - Ultra Premium Unlock</title>
+    <!-- Telegram WebApp Script -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
+
+    <!--
+    ═══════════════════════════════════════════════════
+      Monetag Rewarded Interstitial SDK
+      Zone ID: 10682642
+      رابط SDK الرسمي لـ Monetag
+    ═══════════════════════════════════════════════════
+    -->
+    <script src='https://libtl.com/sdk.js' data-zone='10682642' data-sdk='show_10682642'></script>
+
+    <style>
+        :root {
+            --neon-cyan: #0ff;
+            --neon-magenta: #f0f;
+            --dark-bg: #05050a;
+            --glass-bg: rgba(10, 10, 20, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text-glow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--dark-bg);
+            color: #ffffff;
+            font-family: 'Outfit', sans-serif;
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            perspective: 1000px;
+            /* For 3D tilt effect */
+        }
+
+        /* 🌌 Advanced Particle System Canvas */
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* 🧊 3D Glassmorphism Card */
+        .card-container {
+            position: relative;
+            z-index: 10;
+            width: 90%;
+            max-width: 400px;
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+        }
+
+        .premium-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border);
+            border-radius: 40px;
+            padding: 50px 30px;
+            text-align: center;
+            box-shadow:
+                0 30px 60px rgba(0, 0, 0, 0.6),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                inset 0 0 30px rgba(0, 255, 255, 0.03);
+            position: relative;
+            transform: translateZ(30px);
+            /* Lifts content off the background */
+            overflow: hidden;
+        }
+
+        /* Animated Glowing Orbs behind the card */
+        .card-container::before,
+        .card-container::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            z-index: -1;
+            opacity: 0.5;
+            animation: float 8s infinite alternate ease-in-out;
+        }
+
+        .card-container::before {
+            width: 200px;
+            height: 200px;
+            background: var(--neon-magenta);
+            top: -50px;
+            left: -50px;
+        }
+
+        .card-container::after {
+            width: 250px;
+            height: 250px;
+            background: var(--neon-cyan);
+            bottom: -80px;
+            right: -50px;
+            animation-delay: -4s;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(0) scale(1);
+            }
+
+            100% {
+                transform: translateY(-30px) scale(1.1);
+            }
+        }
+
+        /* 🔒 Lock Icon Animation */
+        .lock-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 30px;
+            transform: translateZ(50px);
+        }
+
+        .lock-icon {
+            font-size: 80px;
+            display: block;
+            filter: drop-shadow(0 0 20px var(--neon-cyan));
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: pointer;
+        }
+
+        .lock-icon:hover {
+            transform: scale(1.1);
+            filter: drop-shadow(0 0 30px var(--neon-magenta));
+        }
+
+        .lock-icon.unlocked {
+            transform: scale(1.3) rotate(-15deg);
+            filter: drop-shadow(0 0 40px #0f0);
+        }
+
+        /* 🏷️ Typography */
+        .brand-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            background: rgba(0, 255, 255, 0.1);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 4px;
+            color: var(--neon-cyan);
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            box-shadow: var(--text-glow);
+            transform: translateZ(40px);
+        }
+
+        .title {
+            font-size: 32px;
+            font-weight: 900;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, #fff, var(--neon-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            transform: translateZ(40px);
+        }
+
+        .description {
+            font-size: 16px;
+            font-weight: 300;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 40px;
+            transform: translateZ(30px);
+        }
+
+        /* 🔘 Hyper-Interactive Button */
+        .btn-premium {
+            position: relative;
+            width: 100%;
+            padding: 20px;
+            border: none;
+            border-radius: 20px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+            cursor: pointer;
+            background: linear-gradient(45deg, var(--neon-cyan), var(--neon-magenta));
+            background-size: 200% 200%;
+            box-shadow: 0 10px 30px rgba(0, 255, 255, 0.4);
+            transition: all 0.3s ease;
+            transform: translateZ(50px);
+            overflow: hidden;
+            animation: gradientShift 4s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        .btn-premium:active {
+            transform: translateZ(30px) scale(0.95);
+            box-shadow: 0 5px 15px rgba(0, 255, 255, 0.3);
+        }
+
+        .btn-premium:disabled {
+            background: #2a2a35;
+            color: #555;
+            box-shadow: none;
+            cursor: not-allowed;
+            animation: none;
+            transform: translateZ(20px);
+        }
+
+        /* Sweep glow effect inside button */
+        .btn-premium::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: all 0.5s;
+        }
+
+        .btn-premium:hover:not(:disabled)::before {
+            left: 100%;
+            transition: 0.7s;
+        }
+
+        /* ⚡ Fallback Button */
+        .btn-fallback {
+            display: none;
+            width: 100%;
+            padding: 16px;
+            margin-top: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            background: transparent;
+            color: #aaa;
+            font-family: 'Outfit', sans-serif;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            transform: translateZ(40px);
+        }
+
+        .btn-fallback:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 📋 Status Indicator */
+        .status-box {
+            margin-top: 25px;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
+            opacity: 0;
+            transform: translateY(10px) translateZ(30px);
+            transition: all 0.4s ease;
+            position: absolute;
+            bottom: -60px;
+            left: 50%;
+            width: 85%;
+            margin-left: -42.5%;
+            /* Center it */
+        }
+
+        .status-box.show {
+            opacity: 1;
+            transform: translateY(0) translateZ(30px);
+            bottom: 25px;
+        }
+
+        .status-box.loading {
+            background: rgba(0, 255, 255, 0.1);
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+        }
+
+        .status-box.error {
+            background: rgba(255, 0, 100, 0.1);
+            border: 1px solid #ff0064;
+            color: #ff0064;
+        }
+
+        .status-box.success {
+            background: rgba(0, 255, 100, 0.1);
+            border: 1px solid #00ff64;
+            color: #00ff64;
+        }
+
+        /* Debug UI */
+        #debug-log {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            font-size: 10px;
+            font-family: monospace;
+            color: rgba(255, 255, 255, 0.3);
+            z-index: 100;
+            pointer-events: none;
+            direction: ltr;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Dynamic Particle Background -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- Top Corner Debug -->
+    <div id="debug-log">System Initializing...</div>
+
+    <!-- Main 3D Container -->
+    <div class="card-container" id="card3D">
+        <div class="premium-card">
+
+            <div class="lock-wrapper">
+                <span class="lock-icon" id="lockIcon">🔒</span>
+            </div>
+
+            <div class="brand-badge">AEMODE PREMIUM</div>
+            <div class="title">ساهم لفك القفل</div>
+            <p class="description">شاهد إعلاناً قصيراً لتساهم في فتح الملف لجميع المستخدمين في القناة. <br><span
+                    style="opacity:0.5; font-size:12px;">مساهمتك تصنع الفرق.</span></p>
+
+            <button class="btn-premium" id="mainBtn">
+                <span id="btnText">▶ شاهد العرض للفتح</span>
+            </button>
+
+            <button class="btn-fallback" id="fallbackBtn">⚡ تخطي الطوارئ</button>
+
+            <!-- Status Popup Inside Card -->
+            <div class="status-box" id="statusBox"></div>
+        </div>
+    </div>
+
+    <script>
+        // ════════════════════════════════════════════
+        //  1. Telegram UI & Haptic Integration
+        // ════════════════════════════════════════════
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
+
+        // Configure Telegram theme colors if possible
+        tg.setHeaderColor('#05050a');
+        tg.setBackgroundColor('#05050a');
+
+        // Debugger
+        const dLog = document.getElementById('debug-log');
+        function logInfo(msg) {
+            console.log('[AEMODE]', msg);
+            dLog.textContent = msg;
+        }
+        logInfo('Network: Connected. SDK checking...');
+
+        // ════════════════════════════════════════════
+        //  2. Advanced WebGL-like Particle Engine
+        // ════════════════════════════════════════════
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let mouse = { x: null, y: null };
+
+        window.addEventListener('resize', resizeCanvas);
+        canvas.addEventListener('mousemove', (e) => { mouse.x = e.x; mouse.y = e.y; });
+        canvas.addEventListener('touchmove', (e) => { mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; });
+        canvas.addEventListener('mouseleave', () => { mouse.x = null; mouse.y = null; });
+        canvas.addEventListener('touchend', () => { mouse.x = null; mouse.y = null; });
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            initParticles();
+        }
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 2 + 0.1;
+                this.baseX = this.x;
+                this.baseY = this.y;
+                this.density = (Math.random() * 30) + 1;
+                this.color = Math.random() > 0.5 ? '#0ff' : '#f0f';
+                this.speedX = Math.random() * 0.5 - 0.25;
+                this.speedY = Math.random() * 0.5 - 0.25;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.closePath();
+                ctx.fillStyle = this.color;
+
+                // Add glow to particles
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.shadowBlur = 0; // Reset
+            }
+            update() {
+                // Natural drift
+                this.x += this.speedX;
+                this.y += this.speedY;
+
+                // Wrap around
+                if (this.x > canvas.width) this.x = 0;
+                if (this.x < 0) this.x = canvas.width;
+                if (this.y > canvas.height) this.y = 0;
+                if (this.y < 0) this.y = canvas.height;
+
+                // Mouse interaction
+                if (mouse.x != null && mouse.y != null) {
+                    let dx = mouse.x - this.x;
+                    let dy = mouse.y - this.y;
+                    let distance = Math.sqrt(dx * dx + dy * dy);
+                    let forceDirectionX = dx / distance;
+                    let forceDirectionY = dy / distance;
+
+                    // Interaction radius
+                    const maxDistance = 150;
+                    let force = (maxDistance - distance) / maxDistance;
+                    if (force < 0) force = 0;
+
+                    let directionX = (forceDirectionX * force * this.density) * 0.6;
+                    let directionY = (forceDirectionY * force * this.density) * 0.6;
+
+                    if (distance < maxDistance) {
+                        this.x -= directionX;
+                        this.y -= directionY;
+                    }
+                }
+                this.draw();
+            }
+        }
+
+        function initParticles() {
+            particles = [];
+            let numberOfParticles = (canvas.width * canvas.height) / 10000;
+            for (let i = 0; i < numberOfParticles; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+            }
+            requestAnimationFrame(animateParticles);
+        }
+
+        resizeCanvas();
+        animateParticles();
+
+        // ════════════════════════════════════════════
+        //  3. 3D Card Tilt Effect (Gyro/Mouse)
+        // ════════════════════════════════════════════
+        const card = document.getElementById('card3D');
+        document.addEventListener('mousemove', (e) => {
+            let xAxis = (window.innerWidth / 2 - e.pageX) / 25;
+            let yAxis = (window.innerHeight / 2 - e.pageY) / 25;
+            card.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
+        });
+        // Reset on leave
+        document.addEventListener('mouseleave', () => {
+            card.style.transform = `rotateY(0deg) rotateX(0deg)`;
+        });
+        // Simple Device Orientation for phones
+        if (window.DeviceOrientationEvent) {
+            window.addEventListener('deviceorientation', (e) => {
+                let tiltX = e.gamma ? Math.min(Math.max(e.gamma / 3, -15), 15) : 0;
+                let tiltY = e.beta ? Math.min(Math.max((e.beta - 45) / 3, -15), 15) : 0;
+                card.style.transform = `rotateY(${tiltX}deg) rotateX(${-tiltY}deg)`;
+            });
+        }
+
+        // ════════════════════════════════════════════
+        //  4. Core Logic & Interaction
+        // ════════════════════════════════════════════
+        const lockIcon = document.getElementById('lockIcon');
+        const mainBtn = document.getElementById('mainBtn');
+        const btnText = document.getElementById('btnText');
+        const fallbackBtn = document.getElementById('fallbackBtn');
+        const statusBox = document.getElementById('statusBox');
+
+        // Easter egg lock tap
+        lockIcon.onclick = () => {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
+            lockIcon.classList.add('unlocked'); lockIcon.textContent = '🔓';
+            setTimeout(() => { lockIcon.classList.remove('unlocked'); lockIcon.textContent = '🔒'; }, 1000);
+        };
+
+        function showStatus(msg, type) {
+            statusBox.textContent = msg;
+            statusBox.className = `status-box show ${type}`;
+        }
+
+        // Polling for Monetag SDK to ensure it registers
+        let isSdkReady = false;
+        let checkCount = 0;
+        const sdkPoller = setInterval(() => {
+            checkCount++;
+            if (typeof show_10682642 === 'function') {
+                isSdkReady = true;
+                logInfo('SDK Active & Ready ✅');
+                clearInterval(sdkPoller);
+            } else if (checkCount > 15) {
+                logInfo('SDK Timeout ⚠️');
+                clearInterval(sdkPoller);
+            }
+        }, 1000);
+
+        function executeSuccess() {
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            lockIcon.textContent = '🔓';
+            lockIcon.classList.add('unlocked');
+            showStatus('تم بنجاح! جاري العودة للبوت...', 'success');
+            logInfo('Triggering tg.sendData()');
+
+            // Send data to Telegram Bot back-end
+            tg.sendData('view_completed');
+
+            // Close automatically
+            setTimeout(() => tg.close(), 1500);
+        }
+
+        mainBtn.onclick = function () {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+            mainBtn.disabled = true;
+            btnText.textContent = '⏳ جاري الاتصال...';
+
+            // Add pulsing effect while loading
+            mainBtn.style.animation = 'none';
+            showStatus('تهيئة واجهة الإعلانات...', 'loading');
+            logInfo('Ad requested. Method: ' + typeof show_10682642);
+
+            let adTriggered = false;
+
+            // The guaranteed 8-second anti-stuck fallback
+            const safetyTimeout = setTimeout(() => {
+                if (!adTriggered) {
+                    logInfo('Safety timeout triggered.');
+                    fallbackBtn.style.display = 'block';
+                    showStatus('تعذر الاتصال بالمزود. استخدم التخطي.', 'error');
+                    mainBtn.style.display = 'none'; // Hide main button to force fallback
+                    if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+                }
+            }, 8000);
+
+            // Try executing the Monetag ad
+            if (typeof show_10682642 === 'function') {
+                try {
+                    show_10682642().then(() => {
+                        adTriggered = true;
+                        clearTimeout(safetyTimeout);
+                        logInfo('Ad promise resolved.');
+                        executeSuccess();
+                    }).catch((err) => {
+                        adTriggered = true;
+                        clearTimeout(safetyTimeout);
+                        logInfo('Ad promise rejected: ' + err);
+
+                        // If it fails but was attempted, we still reward the user
+                        fallbackBtn.style.display = 'block';
+                        showStatus('حدث خطأ في عرض الإعلان.', 'error');
+                        mainBtn.style.display = 'none';
+                    });
+                } catch (e) {
+                    adTriggered = true;
+                    clearTimeout(safetyTimeout);
+                    logInfo('Ad execute exception: ' + e);
+                    fallbackBtn.style.display = 'block';
+                    showStatus('تعذر تحميل إعلان.', 'error');
+                    mainBtn.style.display = 'none';
+                }
+            } else {
+                // SDK not loaded, wait for the safety timeout
+                logInfo('SDK not present. Waiting for safety fallback...');
+                showStatus('جاري محاولة الاتصال...', 'loading');
+            }
+        };
+
+        // Fallback button is a guaranteed success path
+        fallbackBtn.onclick = function () {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('heavy');
+            fallbackBtn.disabled = true;
+            fallbackBtn.textContent = '⏳ جاري المعالجة...';
+            executeSuccess();
+        };
+
+        // Prevent page scrolling/bouncing on iOS
+        document.addEventListener('touchmove', function (e) { e.preventDefault(); }, { passive: false });
+    </script>
+</body>
+
+</html>
