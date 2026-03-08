@@ -18,7 +18,8 @@ import logging
 import asyncio
 import threading
 import html
-from datetime import datetime
+import sqlite3
+from datetime import datetime, date, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram import (
@@ -39,6 +40,7 @@ from telegram.ext import (
     MessageHandler,
     CallbackQueryHandler,
     PreCheckoutQueryHandler,
+    MessageReactionHandler,
     filters,
     ContextTypes,
 )
@@ -53,9 +55,9 @@ ADMIN_ID = 7246473970
 CHANNEL_ID = -1002489542574
 BOT_USERNAME = "AE_Mode_bot"
 DATA_FILE = "data.json"
+SQLITE_DB = "bot_data.db"
 
 # رابط صفحة الويب المصغرة لإعلانات Monetag
-# تم ضبط الرابط الذي تم الحصول عليه من tiiny.site لضمان عمل زر المساهمة
 WEBAPP_URL = "https://relimarco72-gif.github.io/telegram-apk-bot/"
 
 # إعدادات الحماية السلوكية
@@ -63,6 +65,10 @@ RATE_LIMIT_SECONDS = 5       # الحد الأدنى بين العمليات
 SPAM_WINDOW = 30             # نافذة كشف السبام (ثانية)
 SPAM_THRESHOLD = 5           # عدد العمليات المسموحة في النافذة
 MAX_VIOLATIONS = 3           # الحد الأقصى للمخالفات قبل الحظر
+VIEW_COOLDOWN_SECONDS = 40   # كولداون بين المشاهدات لنفس المستخدم
+AUTOBAN_VIEWS_PER_MIN = 5    # عتبة كشف التلاعب (مستحيل شرعياً مع كولداون 40 ثانية)
+STREAK_DAILY_TARGET = 1000   # عدد المشاهدات المطلوبة يومياً لزيادة الـ Streak
+STREAK_PRIZE_DAYS = 21       # عدد أيام الـ Streak للجائزة
 JUMP_MULTIPLIER = 5          # مضاعف كشف القفزات غير الطبيعية
 
 # إعداد التسجيل
@@ -71,6 +77,224 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+
+
+# ══════════════════════════════════════════════════════════════════
+#  قاعدة بيانات SQLite - نظام الجدارة والتتبع المتقدم
+# ══════════════════════════════════════════════════════════════════
+
+def init_sqlite_db():
+    """تهيئة قاعدة بيانات SQLite مع الجداول المطلوبة."""
+    conn = sqlite3.connect(SQLITE_DB)
+    c = conn.cursor()
+    # جدول تتبع المشاهدات اليومية والـ Streak
+    c.execute("""CREATE TABLE IF NOT EXISTS user_streaks (
+        user_id INTEGER PRIMARY KEY,
+        today_views INTEGER DEFAULT 0,
+        last_view_date TEXT DEFAULT '',
+        streak_days INTEGER DEFAULT 0,
+        last_streak_date TEXT DEFAULT '',
+        prize_claimed INTEGER DEFAULT 0
+    )""")
+    # جدول كولداون المشاهدات
+    c.execute("""CREATE TABLE IF NOT EXISTS view_cooldowns (
+        user_id INTEGER PRIMARY KEY,
+        last_view_ts REAL DEFAULT 0
+    )""")
+    # جدول تتبع المشاهدات السريعة (Auto-Ban)
+    c.execute("""CREATE TABLE IF NOT EXISTS view_timestamps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        ts REAL
+    )""")
+    # جدول التفاعلات (Reactions)
+    c.execute("""CREATE TABLE IF NOT EXISTS reactions_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        username TEXT DEFAULT '',
+        chat_id INTEGER,
+        ts REAL
+    )""")
+    # جدول مدفوعات النجوم
+    c.execute("""CREATE TABLE IF NOT EXISTS star_payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        username TEXT DEFAULT '',
+        amount INTEGER,
+        file_key TEXT,
+        ts REAL
+    )""")
+    # جدول الحظر
+    c.execute("""CREATE TABLE IF NOT EXISTS banned_users (
+        user_id INTEGER PRIMARY KEY,
+        reason TEXT DEFAULT '',
+        banned_at REAL
+    )""")
+    conn.commit()
+    conn.close()
+    logger.info("✅ SQLite DB initialized")
+
+# تهيئة قاعدة البيانات عند تحميل الملف
+init_sqlite_db()
+
+
+def get_db():
+    """الحصول على اتصال SQLite (thread-safe)."""
+    return sqlite3.connect(SQLITE_DB)
+
+
+def db_check_view_cooldown(user_id: int) -> bool:
+    """التحقق من كولداون 40 ثانية. يعيد True إذا مسموح."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT last_view_ts FROM view_cooldowns WHERE user_id=?", (user_id,))
+    row = c.fetchone()
+    now = time.time()
+    if row and (now - row[0]) < VIEW_COOLDOWN_SECONDS:
+        conn.close()
+        return False
+    c.execute("INSERT OR REPLACE INTO view_cooldowns (user_id, last_view_ts) VALUES (?, ?)", (user_id, now))
+    conn.commit()
+    conn.close()
+    return True
+
+
+def db_check_autoban(user_id: int) -> bool:
+    """فحص Auto-Ban: أكثر من 3 مشاهدات في دقيقة = حظر. يعيد True إذا يجب الحظر."""
+    conn = get_db()
+    c = conn.cursor()
+    now = time.time()
+    # تسجيل المشاهدة
+    c.execute("INSERT INTO view_timestamps (user_id, ts) VALUES (?, ?)", (user_id, now))
+    # حذف القديم (أكثر من 5 دقائق)
+    c.execute("DELETE FROM view_timestamps WHERE ts < ?", (now - 300,))
+    # عدّ المشاهدات في آخر 60 ثانية
+    c.execute("SELECT COUNT(*) FROM view_timestamps WHERE user_id=? AND ts > ?", (user_id, now - 60))
+    count = c.fetchone()[0]
+    conn.commit()
+    conn.close()
+    return count > AUTOBAN_VIEWS_PER_MIN
+
+
+def db_ban_user(user_id: int, reason: str = "auto_ban"):
+    """حظر مستخدم في SQLite."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("INSERT OR REPLACE INTO banned_users (user_id, reason, banned_at) VALUES (?, ?, ?)",
+              (user_id, reason, time.time()))
+    conn.commit()
+    conn.close()
+
+
+def db_is_banned(user_id: int) -> bool:
+    """التحقق من حظر مستخدم في SQLite."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT 1 FROM banned_users WHERE user_id=?", (user_id,))
+    row = c.fetchone()
+    conn.close()
+    return row is not None
+
+
+def db_update_streak(user_id: int) -> dict:
+    """تحديث عداد المشاهدات اليومي والـ Streak. يعيد معلومات الحالة."""
+    conn = get_db()
+    c = conn.cursor()
+    today_str = date.today().isoformat()
+    yesterday_str = (date.today() - timedelta(days=1)).isoformat()
+
+    c.execute("SELECT today_views, last_view_date, streak_days, last_streak_date, prize_claimed FROM user_streaks WHERE user_id=?", (user_id,))
+    row = c.fetchone()
+
+    if not row:
+        c.execute("INSERT INTO user_streaks (user_id, today_views, last_view_date, streak_days, last_streak_date) VALUES (?, 1, ?, 0, '')",
+                  (user_id, today_str))
+        conn.commit()
+        conn.close()
+        return {"today_views": 1, "streak_days": 0, "prize": False}
+
+    today_views, last_view_date, streak_days, last_streak_date, prize_claimed = row
+
+    # إذا يوم جديد
+    if last_view_date != today_str:
+        # تحقق: هل أكمل أمس الهدف؟
+        if last_view_date == yesterday_str and today_views >= STREAK_DAILY_TARGET:
+            streak_days += 1
+        elif last_view_date != yesterday_str:
+            # انقطع أكثر من يوم -> صفر
+            streak_days = 0
+        today_views = 1
+    else:
+        today_views += 1
+
+    # تحقق: هل أكمل الهدف اليوم الآن؟
+    if today_views >= STREAK_DAILY_TARGET and last_streak_date != today_str:
+        streak_days += 1
+        last_streak_date = today_str
+
+    won_prize = streak_days >= STREAK_PRIZE_DAYS and not prize_claimed
+    if won_prize:
+        prize_claimed = 1
+
+    c.execute("""UPDATE user_streaks SET today_views=?, last_view_date=?, streak_days=?, 
+                 last_streak_date=?, prize_claimed=? WHERE user_id=?""",
+              (today_views, today_str, streak_days, last_streak_date, prize_claimed, user_id))
+    conn.commit()
+    conn.close()
+    return {"today_views": today_views, "streak_days": streak_days, "prize": won_prize}
+
+
+def db_log_reaction(user_id: int, username: str, chat_id: int):
+    """تسجيل تفاعل مستخدم."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("INSERT INTO reactions_log (user_id, username, chat_id, ts) VALUES (?, ?, ?, ?)",
+              (user_id, username, chat_id, time.time()))
+    conn.commit()
+    conn.close()
+
+
+def db_log_star_payment(user_id: int, username: str, amount: int, file_key: str):
+    """تسجيل دفعة نجوم."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("INSERT INTO star_payments (user_id, username, amount, file_key, ts) VALUES (?, ?, ?, ?, ?)",
+              (user_id, username, amount, file_key, time.time()))
+    conn.commit()
+    conn.close()
+
+
+def db_get_top_viewers_today(limit: int = 10) -> list:
+    """الحصول على أفضل المشاهدين اليوم."""
+    conn = get_db()
+    c = conn.cursor()
+    today_str = date.today().isoformat()
+    c.execute("""SELECT user_id, today_views, streak_days FROM user_streaks 
+                 WHERE last_view_date=? ORDER BY today_views DESC LIMIT ?""", (today_str, limit))
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+
+def db_get_total_stars() -> int:
+    """إجمالي النجوم المدفوعة."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT COALESCE(SUM(amount), 0) FROM star_payments")
+    total = c.fetchone()[0]
+    conn.close()
+    return total
+
+
+def db_get_total_views_today() -> int:
+    """إجمالي المشاهدات اليوم."""
+    conn = get_db()
+    c = conn.cursor()
+    today_str = date.today().isoformat()
+    c.execute("SELECT COALESCE(SUM(today_views), 0) FROM user_streaks WHERE last_view_date=?", (today_str,))
+    total = c.fetchone()[0]
+    conn.close()
+    return total
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -192,9 +416,11 @@ def add_log(data: dict, action: str, user_id: int = 0, details: str = "") -> Non
 # ══════════════════════════════════════════════════════════════════
 
 def is_banned(user_id: int) -> bool:
-    """التحقق مما إذا كان المستخدم محظوراً."""
+    """التحقق مما إذا كان المستخدم محظوراً (JSON + SQLite)."""
     data = load_data()
-    return user_id in data["banned_users"]
+    if user_id in data["banned_users"]:
+        return True
+    return db_is_banned(user_id)
 
 
 def generate_file_key() -> str:
@@ -450,17 +676,29 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
     # رسالة الترحيب مع أزرار الخدمات
+    first_name = html_escape(update.effective_user.first_name or "مستخدم")
+    
     if user_id == ADMIN_ID:
+        # إحصائيات سريعة للأدمن
+        total_users = len(data["activated_users"])
+        total_files = len(data["files"])
+        views_today = db_get_total_views_today()
         text = (
-            "👋 <b>أهلاً بك في لوحة تحكم الإدارة!</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            "🎛️ لوحة التحكم السريعة:\n"
-            "├ /addfile - رفع ملف APK\n"
-            "├ /listfiles - تصفح الملفات\n"
-            "├ /deletefile - حذف ملف\n"
-            "├ /stats - إحصائيات النظام\n"
-            "├ /broadcast - إرسال رسالة للجميع\n"
-            "└ /shutdown - إيقاف البوت"
+            f"👑 <b>مرحباً {first_name}!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"📊 <b>نظرة سريعة:</b>\n"
+            f"   👥 المستخدمون: <b>{total_users}</b>\n"
+            f"   📦 الملفات: <b>{total_files}</b>\n"
+            f"   📹 مشاهدات اليوم: <b>{views_today}</b>\n\n"
+            f"🎛️ <b>لوحة التحكم:</b>\n"
+            f"├ /addfile - رفع ملف\n"
+            f"├ /listfiles - تصفح الملفات\n"
+            f"├ /stats - إحصائيات شاملة\n"
+            f"├ /top - أفضل المشاهدين\n"
+            f"├ /ban - حظر مستخدم\n"
+            f"├ /unban - إلغاء حظر\n"
+            f"├ /broadcast - إرسال جماعي\n"
+            f"└ /shutdown - إيقاف البوت"
         )
         keyboard = [
             [InlineKeyboardButton("📦 إضافة ملف جديد", callback_data="menu_addfile")],
@@ -468,24 +706,45 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 InlineKeyboardButton("📂 الملفات", callback_data="menu_listfiles"),
                 InlineKeyboardButton("📊 الإحصائيات", callback_data="menu_stats")
             ],
-            [InlineKeyboardButton("👑 حسابي كمدير", callback_data="menu_profile")]
+            [
+                InlineKeyboardButton("🏆 أفضل 10", callback_data="menu_leaderboard"),
+                InlineKeyboardButton("👑 حسابي", callback_data="menu_profile")
+            ],
         ]
     else:
+        # معلومات Streak للمستخدم
+        streak_info = db_update_streak.__wrapped__(user_id) if hasattr(db_update_streak, '__wrapped__') else {"today_views": 0, "streak_days": 0}
+        try:
+            conn = get_db()
+            c = conn.cursor()
+            today_str = date.today().isoformat()
+            c.execute("SELECT today_views, streak_days FROM user_streaks WHERE user_id=? AND last_view_date=?", (user_id, today_str))
+            row = c.fetchone()
+            conn.close()
+            tv = row[0] if row else 0
+            sd = row[1] if row else 0
+        except Exception:
+            tv, sd = 0, 0
+
+        streak_txt = f"🔥 Streak: <b>{sd}</b> يوم" if sd > 0 else "🔥 ابدأ سلسلتك اليوم!"
         text = (
-            "✨ <b>مرحباً بك في نظام فتح الملفات!</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            "نحن نعتمد المجتمع لفتح الملفات المميزة.\n"
-            "يمكنك المساهمة عبر مشاهدة الإعلانات 📹\n"
-            "أو تسريع الفتح بشراء النجوم ⭐.\n\n"
-            "اختر من القائمة أدناه لمعرفة المزيد:"
+            f"✨ <b>أهلاً {first_name}!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"📹 مشاهداتك اليوم: <b>{tv}</b>/{STREAK_DAILY_TARGET}\n"
+            f"{streak_txt}\n"
+            f"🏆 الهدف: {STREAK_PRIZE_DAYS} يوم متتالي = تليجرام مميز!\n\n"
+            f"ساهم عبر مشاهدة الإعلانات 📹 أو النجوم ⭐"
         )
         keyboard = [
             [
-                InlineKeyboardButton("👤 حسابي ومساهماتي", callback_data="menu_profile"),
+                InlineKeyboardButton("👤 حسابي", callback_data="menu_profile"),
                 InlineKeyboardButton("🏆 لوحة الشرف", callback_data="menu_leaderboard")
             ],
-            [InlineKeyboardButton("⭐ شراء نجوم", url=f"https://t.me/{BOT_USERNAME}")],
-            [InlineKeyboardButton("❓ كيفية عمل البوت", callback_data="menu_help")],
+            [
+                InlineKeyboardButton("📹 أفضل 10 اليوم", callback_data="menu_top10"),
+                InlineKeyboardButton("❓ كيف يعمل؟", callback_data="menu_help")
+            ],
+            [InlineKeyboardButton("📢 القناة الرسمية", url="https://t.me/AE_MODE_apk")],
         ]
 
     await update.message.reply_text(
@@ -738,6 +997,10 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not top_text:
         top_text = "   لا يوجد داعمون بعد.\n"
 
+    # إحصائيات من SQLite
+    sqlite_total_stars = db_get_total_stars()
+    sqlite_views_today = db_get_total_views_today()
+
     text = (
         f"📊 <b>الإحصائيات الشاملة</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
@@ -749,8 +1012,10 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f"   ├ المكتملة: {completed_files}\n"
         f"   └ قيد التقدم: {pending_files}\n\n"
         f"⭐ <b>النجوم:</b>\n"
-        f"   ├ المستلمة: {total_stars_received}\n"
-        f"   └ المطلوبة: {total_stars_needed}\n\n"
+        f"   ├ المستلمة (ملفات): {total_stars_received}\n"
+        f"   ├ المطلوبة: {total_stars_needed}\n"
+        f"   └ إجمالي المدفوعات (SQLite): {sqlite_total_stars}\n\n"
+        f"📹 <b>المشاهدات اليوم:</b> {sqlite_views_today}\n"
         f"⚠️ <b>المخالفات:</b> {total_violations}\n"
         f"📝 <b>السجلات:</b> {len(data['logs'])}\n\n"
         f"🏆 <b>أكثر الداعمين:</b>\n{top_text}"
@@ -796,6 +1061,122 @@ async def cmd_shutdown(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         os.kill(os.getpid(), signal.SIGTERM)
     except (OSError, AttributeError):
         os.kill(os.getpid(), signal.SIGINT)
+
+
+async def cmd_top(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """عرض أفضل 10 مستخدمين اليوم (متاح للجميع)."""
+    user_id = update.effective_user.id
+    if is_banned(user_id):
+        return
+
+    top_list = db_get_top_viewers_today(10)
+    if not top_list:
+        await update.message.reply_text("📊 لا توجد مشاهدات مسجلة اليوم بعد.")
+        return
+
+    text = "🏆 <b>أفضل 10 مشاهدين اليوم</b>\n━━━━━━━━━━━━━━━━━━━━━━\n\n"
+    medals = ["🥇", "🥈", "🥉"]
+    for i, (uid, views, streak) in enumerate(top_list):
+        badge = medals[i] if i < 3 else f"  {i+1}."
+        streak_txt = f" 🔥{streak}" if streak > 0 else ""
+        text += f"{badge} <code>{uid}</code> → <b>{views}</b> مشاهدة{streak_txt}\n"
+
+    text += "\n━━━━━━━━━━━━━━━━━━━━━━\n💡 شاهد الإعلانات لتصعد في الترتيب!"
+    await update.message.reply_text(text, parse_mode="HTML")
+
+
+async def cmd_ban(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """حظر مستخدم يدوياً (المالك فقط). الاستخدام: /ban USER_ID"""
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    if not context.args or len(context.args) < 1:
+        await update.message.reply_text(
+            "❌ الاستخدام: <code>/ban USER_ID</code>\n"
+            "مثال: <code>/ban 123456789</code>",
+            parse_mode="HTML"
+        )
+        return
+
+    try:
+        target_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("❌ يرجى إدخال رقم ID صحيح.")
+        return
+
+    if target_id == ADMIN_ID:
+        await update.message.reply_text("❌ لا يمكنك حظر نفسك!")
+        return
+
+    # حظر في كلا النظامين
+    db_ban_user(target_id, "manual_ban_by_admin")
+    data = load_data()
+    if target_id not in data["banned_users"]:
+        data["banned_users"].append(target_id)
+        add_log(data, "manual_ban", ADMIN_ID, f"Banned user {target_id}")
+        save_data(data)
+
+    await update.message.reply_text(
+        f"🚫 <b>تم حظر المستخدم بنجاح</b>\n"
+        f"👤 ID: <code>{target_id}</code>",
+        parse_mode="HTML"
+    )
+
+
+async def cmd_unban(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """إلغاء حظر مستخدم (المالك فقط). الاستخدام: /unban USER_ID"""
+    if update.effective_user.id != ADMIN_ID:
+        return
+
+    if not context.args or len(context.args) < 1:
+        await update.message.reply_text(
+            "❌ الاستخدام: <code>/unban USER_ID</code>\n"
+            "مثال: <code>/unban 123456789</code>",
+            parse_mode="HTML"
+        )
+        return
+
+    try:
+        target_id = int(context.args[0])
+    except ValueError:
+        await update.message.reply_text("❌ يرجى إدخال رقم ID صحيح.")
+        return
+
+    # إلغاء الحظر من JSON
+    data = load_data()
+    if target_id in data["banned_users"]:
+        data["banned_users"].remove(target_id)
+        add_log(data, "unban", ADMIN_ID, f"Unbanned user {target_id}")
+        save_data(data)
+
+    # إلغاء الحظر من SQLite
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM banned_users WHERE user_id=?", (target_id,))
+    c.execute("DELETE FROM view_timestamps WHERE user_id=?", (target_id,))
+    conn.commit()
+    conn.close()
+
+    await update.message.reply_text(
+        f"✅ <b>تم إلغاء حظر المستخدم</b>\n"
+        f"👤 ID: <code>{target_id}</code>",
+        parse_mode="HTML"
+    )
+
+
+async def handle_reaction(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """معالج التفاعلات (Reactions) - تسجيل في SQLite."""
+    try:
+        reaction = update.message_reaction
+        if not reaction or not reaction.user:
+            return
+        user_id = reaction.user.id
+        username = reaction.user.username or ""
+        chat_id = reaction.chat.id
+        db_log_reaction(user_id, username, chat_id)
+        logger.info(f"Reaction logged: user={user_id} (@{username}) in chat={chat_id}")
+    except Exception as e:
+        logger.error(f"Error in handle_reaction: {e}")
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1181,6 +1562,10 @@ async def handle_successful_payment(update: Update, context: ContextTypes.DEFAUL
     file_key = parts[1]
     stars = int(parts[2])
 
+    # تسجيل الدفعة في SQLite
+    username = update.effective_user.username or ""
+    db_log_star_payment(user_id, username, stars, file_key)
+
     await _credit_stars(update, context, user_id, file_key, stars)
 
 
@@ -1495,7 +1880,7 @@ async def _unlock_file_for_channel(
 
 
 async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """معالجة إشارات WebApp للـ Rewarded Ads (view_completed)."""
+    """معالجة إشارات WebApp للـ Rewarded Ads (view_completed) مع Cooldown و Auto-Ban."""
     user_id = update.effective_user.id
     if is_banned(user_id):
         return
@@ -1505,6 +1890,39 @@ async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE)
     logger.info(f"WebApp Data received from {user_id}: {raw_data}")
     
     if raw_data == "view_completed":
+        # 🔒 كشف التلاعب: أكثر من 5 مشاهدات/دقيقة مستحيل شرعياً (الكولداون 40 ثانية)
+        if db_check_autoban(user_id):
+            # تسجيل مخالفة تلاعب (ليس حظر فوري)
+            data = load_data()
+            await add_violation(data, user_id, "manipulation_attempt", context)
+            # إذا تجاوز 3 مخالفات تلاعب -> حظر
+            uid = str(user_id)
+            manip_count = len([v for v in data["violations"].get(uid, []) if v["reason"] == "manipulation_attempt"])
+            if manip_count >= MAX_VIOLATIONS:
+                db_ban_user(user_id, "repeated_manipulation")
+                if user_id not in data["banned_users"]:
+                    data["banned_users"].append(user_id)
+                    add_log(data, "auto_ban", user_id, f"Repeated manipulation ({manip_count} times)")
+                    save_data(data)
+                await update.message.reply_text(
+                    "🚫 تم حظرك بسبب محاولات تلاعب متكررة بالنظام.",
+                    reply_markup=ReplyKeyboardRemove()
+                )
+            else:
+                await update.message.reply_text(
+                    f"⚠️ تم رصد نشاط غير طبيعي. تحذير {manip_count}/{MAX_VIOLATIONS}.",
+                    reply_markup=ReplyKeyboardRemove()
+                )
+            return
+
+        # 🔒 فحص Cooldown: 40 ثانية بين كل مشاهدة
+        if not db_check_view_cooldown(user_id):
+            await update.message.reply_text(
+                f"⏳ انتظر {VIEW_COOLDOWN_SECONDS} ثانية على الأقل بين كل مشاهدة.",
+                reply_markup=ReplyKeyboardRemove()
+            )
+            return
+
         data = load_data()
         watch_token = None
         
@@ -1528,6 +1946,36 @@ async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
             # معالجة إكمال المشاهدة (زيادة العداد وتحديث القناة)
             await _handle_view_completed(update, context, watch_token)
+            
+            # 📊 تحديث نظام الجدارة (Streak)
+            streak_info = db_update_streak(user_id)
+            if streak_info["today_views"] % 100 == 0:
+                await update.message.reply_text(
+                    f"🔥 <b>رائع!</b> وصلت لـ {streak_info['today_views']} مشاهدة اليوم!\n"
+                    f"🏆 أيام متتالية: {streak_info['streak_days']}/{STREAK_PRIZE_DAYS}",
+                    parse_mode="HTML"
+                )
+            # 🎉 جائزة الـ 21 يوم
+            if streak_info["prize"]:
+                await update.message.reply_text(
+                    "🎉🎉🎉 <b>مبروك! حصلت على تليجرام مميز 3 أشهر!</b>\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"🏆 أكملت {STREAK_PRIZE_DAYS} يوماً متتالياً بـ {STREAK_DAILY_TARGET} مشاهدة يومياً!\n\n"
+                    "📩 تواصل مع المالك للحصول على جائزتك.",
+                    parse_mode="HTML"
+                )
+                try:
+                    await context.bot.send_message(
+                        chat_id=ADMIN_ID,
+                        text=(
+                            f"🏆 <b>مستخدم أكمل تحدي الـ 21 يوماً!</b>\n"
+                            f"👤 المستخدم: <code>{user_id}</code>\n"
+                            f"يستحق تليجرام مميز 3 أشهر."
+                        ),
+                        parse_mode="HTML",
+                    )
+                except Exception:
+                    pass
         else:
             await update.message.reply_text(
                 "❌ <b>عذراً! انتهت صلاحية جلسة المشاهدة.</b>\n"
@@ -1597,25 +2045,74 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         )
         return
         
+    if cb_data == "menu_top10":
+        top_list = db_get_top_viewers_today(10)
+        if not top_list:
+            await query.edit_message_text("📊 لا توجد مشاهدات مسجلة اليوم بعد.")
+        else:
+            text = "🏆 <b>أفضل 10 مشاهدين اليوم</b>\n━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            medals = ["🥇", "🥈", "🥉"]
+            for i, (uid, views, streak) in enumerate(top_list):
+                badge = medals[i] if i < 3 else f"  {i+1}."
+                s = f" 🔥{streak}" if streak > 0 else ""
+                text += f"{badge} <code>{uid}</code> → <b>{views}</b> مشاهدة{s}\n"
+            text += "\n💡 شاهد الإعلانات لتصعد في الترتيب!"
+            await query.edit_message_text(text, parse_mode="HTML")
+        return
+
     if cb_data == "menu_profile":
         data = load_data()
         uid = str(user_id)
         stats = data["user_stats"].get(uid, {"total_stars": 0, "count": 0})
         
-        # حساب المشاهدات الخاصة به
+        # حساب المشاهدات من JSON
         total_views = 0
-        for file_data in data["files"].values():
-            for viewer in file_data.get("ad_viewers", []):
+        for fdata in data["files"].values():
+            for viewer in fdata.get("ad_viewers", []):
                 if viewer["user_id"] == user_id:
                     total_views += 1
+
+        # بيانات Streak من SQLite
+        try:
+            conn = get_db()
+            c = conn.cursor()
+            today_str = date.today().isoformat()
+            c.execute("SELECT today_views, streak_days, last_view_date FROM user_streaks WHERE user_id=?", (user_id,))
+            row = c.fetchone()
+            conn.close()
+            tv = row[0] if row and row[2] == today_str else 0
+            sd = row[1] if row else 0
+        except Exception:
+            tv, sd = 0, 0
+
+        # رتبة المستخدم
+        rank_txt = "غير مصنف"
+        if sd >= 21:
+            rank_txt = "💎 أسطوري"
+        elif sd >= 14:
+            rank_txt = "🏆 محترف"
+        elif sd >= 7:
+            rank_txt = "⭐ متقدم"
+        elif sd >= 3:
+            rank_txt = "🔥 نشيط"
+        elif total_views > 0:
+            rank_txt = "🌱 مبتدئ"
+
+        progress = create_progress_bar(tv, STREAK_DAILY_TARGET, 15)
                     
         await query.edit_message_text(
             f"👤 <b>الملف الشخصي</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
             f"🆔 الايدي: <code>{user_id}</code>\n"
-            f"⭐ مجموع النجوم المهداة: <b>{stats['total_stars']}</b>\n"
-            f"📹 الإعلانات المشاهدة: <b>{total_views}</b>\n\n"
-            f"شكراً لمساهمتك العظيمة في المجتمع! 🌟",
+            f"🎖️ الرتبة: {rank_txt}\n\n"
+            f"📊 <b>إحصائياتك:</b>\n"
+            f"   ⭐ النجوم المهداة: <b>{stats['total_stars']}</b>\n"
+            f"   📹 إجمالي المشاهدات: <b>{total_views}</b>\n\n"
+            f"🔥 <b>تحدي الـ {STREAK_PRIZE_DAYS} يوم:</b>\n"
+            f"   📅 مشاهدات اليوم: <b>{tv}</b>/{STREAK_DAILY_TARGET}\n"
+            f"   {progress}\n"
+            f"   🏆 أيام متتالية: <b>{sd}</b>/{STREAK_PRIZE_DAYS}\n\n"
+            f"شكراً لمساهمتك العظيمة! 🌟",
             parse_mode="HTML"
         )
         return
@@ -1750,6 +2247,7 @@ async def post_init(application) -> None:
     # تعيين قائمة الأوامر (Menu) للمستخدمين العاديين
     user_commands = [
         BotCommand("start", "بدء البوت"),
+        BotCommand("top", "أفضل 10 مشاهدين اليوم"),
     ]
     await application.bot.set_my_commands(user_commands)
 
@@ -1760,6 +2258,9 @@ async def post_init(application) -> None:
         BotCommand("listfiles", "قائمة الملفات"),
         BotCommand("deletefile", "حذف ملف"),
         BotCommand("stats", "الإحصائيات"),
+        BotCommand("top", "أفضل 10 مشاهدين"),
+        BotCommand("ban", "حظر مستخدم"),
+        BotCommand("unban", "إلغاء حظر"),
         BotCommand("broadcast", "إرسال جماعي"),
     ]
     await application.bot.set_my_commands(
@@ -1821,7 +2322,7 @@ def main() -> None:
         .build()
     )
 
-    # ── تسجيل أوامر المالك ──
+    # ── تسجيل الأوامر ──
     application.add_handler(CommandHandler("start", cmd_start))
     application.add_handler(CommandHandler("addfile", cmd_addfile))
     application.add_handler(CommandHandler("listfiles", cmd_listfiles))
@@ -1829,6 +2330,9 @@ def main() -> None:
     application.add_handler(CommandHandler("stats", cmd_stats))
     application.add_handler(CommandHandler("broadcast", cmd_broadcast))
     application.add_handler(CommandHandler("shutdown", cmd_shutdown))
+    application.add_handler(CommandHandler("top", cmd_top))
+    application.add_handler(CommandHandler("ban", cmd_ban))
+    application.add_handler(CommandHandler("unban", cmd_unban))
 
     # ── تسجيل معالجات الرسائل ──
     application.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_webapp_data))
@@ -1842,6 +2346,9 @@ def main() -> None:
 
     # ── تسجيل معالج الأزرار ──
     application.add_handler(CallbackQueryHandler(handle_callback))
+
+    # ── تسجيل معالج التفاعلات (Reactions) ──
+    application.add_handler(MessageReactionHandler(handle_reaction))
 
     # ── تسجيل معالج الأخطاء ──
     application.add_error_handler(error_handler)
